@@ -10,12 +10,25 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.strimzi.operator.common.AdminClientProvider;
 import io.strimzi.operator.common.BackOff;
+import io.strimzi.operator.common.model.Labels;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.DescribeConfigsResult;
+import org.apache.kafka.common.config.ConfigResource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.function.Function;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Specialization of {@link StatefulSetOperator} for StatefulSets of Kafka brokers
@@ -71,6 +84,59 @@ public class KafkaSetOperator extends StatefulSetOperator {
         return new KafkaRoller(vertx, podOperations, 1_000, operationTimeoutMs,
             () -> new BackOff(250, 2, 10), sts, clusterCaCertSecret, coKeySecret, adminClientProvider)
                 .rollingRestart(podNeedsRestart);
+    }
+
+    public Future<Properties> getCurrentConfig(StatefulSet sts, Pod pod) {
+        String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
+        String namespace = sts.getMetadata().getNamespace();
+        Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
+                namespace, KafkaResources.clusterCaCertificateSecretName(cluster));
+        Future<Secret> coKeySecretFuture = secretOperations.getAsync(
+                namespace, ClusterOperator.secretName(cluster));
+        int podId = Integer.parseInt(pod.getMetadata().getName().substring(pod.getMetadata().getName().lastIndexOf("-") + 1));
+        return CompositeFuture.join(clusterCaKeySecretFuture, coKeySecretFuture).compose(compositeFuture -> {
+            Secret clusterCaKeySecret = compositeFuture.resultAt(0);
+            if (clusterCaKeySecret == null) {
+                return Future.failedFuture(missingSecretFuture(namespace, KafkaCluster.clusterCaKeySecretName(cluster)));
+            }
+            Secret coKeySecret = compositeFuture.resultAt(1);
+            if (coKeySecret == null) {
+                return Future.failedFuture(missingSecretFuture(namespace, ClusterOperator.secretName(cluster)));
+            }
+            return getCurrentConfig(podId, namespace, cluster, clusterCaKeySecret, coKeySecret);
+        });
+    }
+
+    public Future<Properties> getCurrentConfig(int podId, String namespace, String cluster,
+                                         Secret clusterCaCertSecret, Secret coKeySecret) {
+        /*return new KafkaRoller(vertx, podOperations, 1_000, operationTimeoutMs,
+                () -> new BackOff(250, 2, 10), sts, clusterCaCertSecret, coKeySecret, adminClientProvider)
+                .rollingRestart(podNeedsRestart);*/
+        Promise<Properties> futRes = Promise.promise();
+        String hostname = KafkaCluster.podDnsName(namespace, cluster, KafkaCluster.kafkaPodName(cluster, podId)) + ":" + KafkaCluster.REPLICATION_PORT;
+        AdminClient ac = adminClientProvider.createAdminClient(hostname, clusterCaCertSecret, coKeySecret);
+        ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
+        DescribeConfigsResult configs = ac.describeConfigs(Collections.singletonList(resource));
+        ac.close();
+        Map<ConfigResource, Config> config = null;
+        try {
+            config = configs.all().get(1000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
+        Properties result = new Properties();
+        config.forEach((key, value) -> {
+            value.entries().forEach(entry -> {
+                String val = entry.value() == null ? "null" : entry.value();
+                result.put(entry.name(), val);
+            });
+        });
+        futRes.complete(result);
+        return futRes.future();
     }
 
 }

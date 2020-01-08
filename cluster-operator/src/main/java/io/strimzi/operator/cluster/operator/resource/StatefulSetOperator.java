@@ -50,7 +50,7 @@ public abstract class StatefulSetOperator extends AbstractScalableResourceOperat
     protected final PodOperator podOperations;
     private final PvcOperator pvcOperations;
     protected final long operationTimeoutMs;
-    private final SecretOperator secretOperations;
+    protected final SecretOperator secretOperations;
 
     /**
      * Constructor
