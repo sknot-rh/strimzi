@@ -86,7 +86,12 @@ public class KafkaSetOperator extends StatefulSetOperator {
                 .rollingRestart(podNeedsRestart);
     }
 
-    public Future<Properties> getCurrentConfig(StatefulSet sts, Pod pod) {
+    /**
+     * @param sts Stateful set to which kafka pod belongs
+     * @param pod Specific kafka pod
+     * @return a future which contains map with all kafka properties including their values
+     */
+    public Future<Map<ConfigResource, Config>> getCurrentConfig(StatefulSet sts, Pod pod) {
         String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
         String namespace = sts.getMetadata().getNamespace();
         Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
@@ -107,12 +112,9 @@ public class KafkaSetOperator extends StatefulSetOperator {
         });
     }
 
-    public Future<Properties> getCurrentConfig(int podId, String namespace, String cluster,
+    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, String namespace, String cluster,
                                          Secret clusterCaCertSecret, Secret coKeySecret) {
-        /*return new KafkaRoller(vertx, podOperations, 1_000, operationTimeoutMs,
-                () -> new BackOff(250, 2, 10), sts, clusterCaCertSecret, coKeySecret, adminClientProvider)
-                .rollingRestart(podNeedsRestart);*/
-        Promise<Properties> futRes = Promise.promise();
+        Promise<Map<ConfigResource, Config>> futRes = Promise.promise();
         String hostname = KafkaCluster.podDnsName(namespace, cluster, KafkaCluster.kafkaPodName(cluster, podId)) + ":" + KafkaCluster.REPLICATION_PORT;
         AdminClient ac = adminClientProvider.createAdminClient(hostname, clusterCaCertSecret, coKeySecret);
         ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
@@ -121,11 +123,7 @@ public class KafkaSetOperator extends StatefulSetOperator {
         Map<ConfigResource, Config> config = null;
         try {
             config = configs.all().get(1000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (TimeoutException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             e.printStackTrace();
         }
         Properties result = new Properties();
@@ -135,7 +133,7 @@ public class KafkaSetOperator extends StatefulSetOperator {
                 result.put(entry.name(), val);
             });
         });
-        futRes.complete(result);
+        futRes.complete(config);
         return futRes.future();
     }
 
