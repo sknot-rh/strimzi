@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.function.Function;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -120,7 +121,7 @@ public class KafkaSetOperator extends StatefulSetOperator {
         ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
         DescribeConfigsResult configs = ac.describeConfigs(Collections.singletonList(resource));
         ac.close();
-        Map<ConfigResource, Config> config = null;
+        Map<ConfigResource, Config> config = new HashMap<>();
         try {
             config = configs.all().get(1000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {

@@ -184,7 +184,7 @@ public class KafkaConfigurationDiff {
                 log.debug("{} is not in the current conf", key);
                 result.add((String) key);
             } else {
-                if (ce.get().isReadOnly() && ce.get().value() != value) {
+                if (ce.get().isReadOnly() && !ce.get().value().equals(value)) {
                     // read only value has been changed in desired cfg
                     log.debug("read only entry {} has been changed in desired cfg", key);
                     result.add((String) key);
