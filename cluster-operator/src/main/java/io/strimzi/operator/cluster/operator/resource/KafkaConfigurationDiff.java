@@ -28,7 +28,80 @@ public class KafkaConfigurationDiff {
     private ConfigMap desired;
 
     private static final ArrayList<String> DYNAMICALLY_CHANGEABLE_ENTRIES = new ArrayList<>(Arrays.asList(
-            "test.property.name"));
+            // per broker
+            "advertised.listeners",
+            "listeners",
+            "principal.builder.class",
+            "sasl.enabled.mechanisms",
+            "sasl.jaas.config",
+            "sasl.kerberos.kinit.cmd",
+            "sasl.kerberos.min.time.before.relogin",
+            "sasl.kerberos.principal.to.local.rules",
+            "sasl.kerberos.service.name",
+            "sasl.kerberos.ticket.renew.jitter",
+            "sasl.kerberos.ticket.renew.window.factor",
+            "sasl.login.refresh.buffer.seconds",
+            "sasl.login.refresh.min.period.seconds",
+            "sasl.login.refresh.window.factor",
+            "sasl.login.refresh.window.jitter",
+            "sasl.mechanism.inter.broker.protocol",
+            "ssl.cipher.suites",
+            "ssl.client.auth",
+            "ssl.enabled.protocols",
+            "ssl.key.password",
+            "ssl.keymanager.algorithm",
+            "ssl.keystore.location",
+            "ssl.keystore.password",
+            "ssl.keystore.type",
+            "ssl.protocol",
+            "ssl.provider",
+            "ssl.trustmanager.algorithm",
+            "ssl.truststore.location",
+            "ssl.truststore.password",
+            "ssl.truststore.type",
+            "listener.security.protocol.map",
+            "ssl.endpoint.identification.algorithm",
+            "ssl.secure.random.implementation",
+            // cluster wide
+            "background.threads",
+            "compression.type",
+            "log.flush.interval.messages",
+            "log.flush.interval.ms",
+            "log.retention.bytes",
+            "log.retention.ms",
+            "log.roll.jitter.ms",
+            "log.roll.ms",
+            "log.segment.bytes",
+            "log.segment.delete.delay.ms",
+            "message.max.bytes",
+            "min.insync.replicas",
+            "num.io.threads",
+            "num.network.threads",
+            "num.recovery.threads.per.data.dir",
+            "num.replica.fetchers",
+            "unclean.leader.election.enable",
+            "log.cleaner.backoff.ms",
+            "log.cleaner.dedupe.buffer.size",
+            "log.cleaner.delete.retention.ms",
+            "log.cleaner.io.buffer.load.factor",
+            "log.cleaner.io.buffer.size",
+            "log.cleaner.io.max.bytes.per.second",
+            "log.cleaner.max.compaction.lag.ms",
+            "log.cleaner.min.cleanable.ratio",
+            "log.cleaner.min.compaction.lag.ms",
+            "log.cleaner.threads",
+            "log.cleanup.policy",
+            "log.index.interval.bytes",
+            "log.index.size.max.bytes",
+            "log.message.timestamp.difference.max.ms",
+            "log.message.timestamp.type",
+            "log.preallocate",
+            "max.connections",
+            "max.connections.per.ip",
+            "max.connections.per.ip.overrides",
+            "log.message.downconversion.enable",
+            "metric.reporters"
+            ));
 
     public KafkaConfigurationDiff(Map<ConfigResource, Config> current, ConfigMap desired) {
         this.current = current;
@@ -129,5 +202,9 @@ public class KafkaConfigurationDiff {
             }
         }
         return true;
+    }
+
+    public boolean isRollingUpdateNeeded() {
+        return !isConfigurationDynamicallyChangeable();
     }
 }

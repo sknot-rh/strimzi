@@ -48,8 +48,8 @@ public class KafkaConfigurationDiffTest {
 
         List<String> configList = Arrays.asList(TestUtils.readResource(is).split(System.getProperty("line.separator")));
         List<ConfigEntry> entryList = new ArrayList<>();
-        configList.forEach((entry) -> {
-            String split[] = entry.split("=");
+        configList.forEach(entry -> {
+            String[] split = entry.split("=");
             String val = split.length == 1 ? "" : split[1];
             ConfigEntry ce = new ConfigEntry(split[0].replace("\n", ""), val, true, true, false);
             entryList.add(ce);
@@ -80,9 +80,30 @@ public class KafkaConfigurationDiffTest {
     }
 
     @Test
-    public void testNonReadOnlyEntryAddedToDesired() {
+    public void testChangeToTheSameValueChangeAble() {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("min.insync.replicas", "2", false, true, false));
+        ces.add(new ConfigEntry("min.insync.replicas", "1", true, true, true));
+        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
+        Set<String> result = kcd.getDiff();
+        assertThat(result.size(), is(0));
+        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
+    }
+
+    @Test
+    public void testChangeToTheSameValueUnchangeAble() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("metrics.num.samples", "2", true, true, true));
+        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
+        Set<String> result = kcd.getDiff();
+        assertThat(result.size(), is(0));
+        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
+    }
+
+    @Test
+    public void testUserAddedCustomProperty() {
+        // not sure if we need rolling update. Current implementations decides we need.
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("karel", "2", false, true, false));
         KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
         Set<String> result = kcd.getDiff();
         assertThat(result.size(), is(1));
@@ -92,10 +113,32 @@ public class KafkaConfigurationDiffTest {
     @Test
     public void testDynamicallyChangeablePropAddedToDesired() {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("test.property.name", "7", false, true, false));
+        ces.add(new ConfigEntry("advertised.listeners", "7", false, true, false));
         KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
         Set<String> result = kcd.getDiff();
         assertThat(result.size(), is(1));
         assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
+    }
+
+    @Test
+    public void testDynamicallyUnchangeablePropAddedToDesired() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("metrics.num.samples", "7", false, true, false));
+        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
+        Set<String> result = kcd.getDiff();
+        assertThat(result.size(), is(1));
+        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
+    }
+
+    @Test
+    public void testDynamicallyChangeableAndUnchangeablePropAddedToDesired() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("advertised.listeners", "7", false, true, false)); // changeable
+        ces.add(new ConfigEntry("metrics.num.samples", "7", false, true, false)); // unchangeable
+        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces));
+        Set<String> result = kcd.getDiff();
+        assertThat(result.size(), is(2));
+        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
+        assertThat(kcd.isRollingUpdateNeeded(), is(true));
     }
 }
