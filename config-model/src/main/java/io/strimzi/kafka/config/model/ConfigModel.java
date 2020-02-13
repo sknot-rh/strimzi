@@ -28,6 +28,7 @@ public class ConfigModel {
     @JsonProperty("enum")
     private List<String> values;
     private String pattern;
+    private Object defaultVal;
 
     /**
      * @return The scope of the parameter.
@@ -46,6 +47,14 @@ public class ConfigModel {
 
     public void setType(Type type) {
         this.type = type;
+    }
+
+    public Object getDefaultVal() {
+        return defaultVal;
+    }
+
+    public void setDefaultVal(Object defaultVal) {
+        this.defaultVal = defaultVal;
     }
 
     /**

@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -84,7 +85,7 @@ public class KafkaConfiguration extends AbstractConfiguration {
         return errors;
     }
 
-    private Map<String, ConfigModel> readConfigModel(KafkaVersion kafkaVersion) {
+    private static Map<String, ConfigModel> readConfigModel(KafkaVersion kafkaVersion) {
         String name = "/kafka-" + kafkaVersion.version() + "-config-model.json";
         try {
             try (InputStream in = KafkaConfiguration.class.getResourceAsStream(name)) {
@@ -160,5 +161,45 @@ public class KafkaConfiguration extends AbstractConfiguration {
         return result;
     }
 
+    /**
+     * Returns true if the supplied value is default to kafka in kafkaVersion version
+     * @param property name of the tested property
+     * @param value desired value
+     * @param kafkaVersion version of Kafka
+     * @return true if the desired value is default
+     */
+    @SuppressWarnings("checkstyle:Regexp")
+    public static boolean isValueOfPropertyDefault(String property, String value, KafkaVersion kafkaVersion) {
+        Map<String, ConfigModel> c = readConfigModel(kafkaVersion);
+        Optional<Map.Entry<String, ConfigModel>> optProp = c.entrySet().stream().filter(entry -> entry.getKey().equals(property)).findFirst();
+        if (optProp.isPresent()) {
+            return optProp.get().getValue().getDefaultVal().toString().replace("\"", "").toLowerCase().equals(value.toLowerCase());
+        } else {
+            // custom property
+            return false;
+        }
+    }
+
+    /* test */
+    public static Object getDefaultValueOfProperty(String property, KafkaVersion kafkaVersion) {
+        Map<String, ConfigModel> c = readConfigModel(kafkaVersion);
+        Optional<Map.Entry<String, ConfigModel>> optProp = c.entrySet().stream().filter(entry -> entry.getKey().equals(property)).findFirst();
+        if (optProp.isPresent()) {
+            return optProp.get().getValue().getDefaultVal();
+        } else {
+            return null;
+        }
+    }
+
+    public List<Map.Entry<String, String>> nonDefaultProperties(KafkaVersion kafkaVersion) {
+        List<Map.Entry<String, String>> nonDefaultProperties = asOrderedProperties().asMap().entrySet().stream().filter(entry ->
+                !isValueOfPropertyDefault(entry.getKey(), entry.getValue(), kafkaVersion))
+                .collect(Collectors.toList());
+        return nonDefaultProperties;
+    }
+
+    public boolean isAllPropertiesDefaultValue(KafkaVersion kafkaVersion) {
+        return nonDefaultProperties(kafkaVersion).isEmpty();
+    }
 
 }
