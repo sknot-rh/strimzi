@@ -141,6 +141,12 @@ public class KafkaBrokerConfigurationDiff {
 
     public boolean isRollingUpdateNeeded() {
         // TODO all the magic of listeners combinations
-        return diff.anyReadOnly(kafkaVersion) || !diff.unknownConfigs(kafkaVersion).isEmpty();
+        return diff.anyReadOnly(kafkaVersion)
+                || !diff.unknownConfigs(kafkaVersion).isEmpty()
+                || advertisedListernesChanged();
+    }
+
+    public boolean advertisedListernesChanged() {
+        return diff.asOrderedProperties().asMap().keySet().contains("advertised.listeners");
     }
 }

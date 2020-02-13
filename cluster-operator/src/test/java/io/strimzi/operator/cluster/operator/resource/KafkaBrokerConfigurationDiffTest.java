@@ -210,8 +210,8 @@ public class KafkaBrokerConfigurationDiffTest {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
         ces.add(new ConfigEntry("advertised.listeners", "karel", false, true, false));
         KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
-        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
-        assertThat(kcd.isRollingUpdateNeeded(), is(false));
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
+        assertThat(kcd.isRollingUpdateNeeded(), is(true));
     }
 
     @Test
