@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -173,7 +174,7 @@ public class KafkaConfiguration extends AbstractConfiguration {
         Map<String, ConfigModel> c = readConfigModel(kafkaVersion);
         Optional<Map.Entry<String, ConfigModel>> optProp = c.entrySet().stream().filter(entry -> entry.getKey().equals(property)).findFirst();
         if (optProp.isPresent()) {
-            return optProp.get().getValue().getDefaultVal().toString().replace("\"", "").toLowerCase().equals(value.toLowerCase());
+            return optProp.get().getValue().getDefaultVal().toString().replace("\"", "").toLowerCase(Locale.ENGLISH).equals(value.toLowerCase(Locale.ENGLISH));
         } else {
             // custom property
             return false;

@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -39,7 +40,8 @@ public class KafkaBrokerConfigurationDiff {
             + "|.*-909[1-3]\\.ssl\\.truststore\\.password"
             + "|.*-909[1-3]\\.ssl\\.truststore\\.type"
             //+ "|advertised\\.listeners"
-            + "|log\\.dirs"
+            + "|zookeeper\\.connect"
+            //+ "|log\\.dirs"
             + "|broker\\.rack"
             + "|broker\\.id)$");
 
@@ -81,7 +83,7 @@ public class KafkaBrokerConfigurationDiff {
     }
 
     private void fillPlaceholderValue(Map<String, String> map, String placeholder, String value) {
-        map.entrySet().forEach((entry) -> {
+        map.entrySet().forEach(entry -> {
             if (!IGNORABLE_PROPERTIES.matcher(entry.getKey()).matches() && entry.getValue().contains("${" + placeholder + "}")) {
                 entry.setValue(entry.getValue().replaceAll("\\$\\{" + placeholder + "\\}", value));
             }
@@ -111,7 +113,7 @@ public class KafkaBrokerConfigurationDiff {
         Map<String, String> difference = new HashMap<>();
         difference.putAll(desired);
         desired.forEach((k, v) -> {
-            if (IGNORABLE_PROPERTIES.matcher(k).matches() || (current.get(k) != null && current.get(k).toLowerCase().equals(v.toLowerCase()))) {
+            if (IGNORABLE_PROPERTIES.matcher(k).matches() || (current.get(k) != null && current.get(k).toLowerCase(Locale.ENGLISH).equals(v.toLowerCase(Locale.ENGLISH)))) {
                 difference.remove(k);
             } else {
                 log.info("{} differs in '{}' ---> '{}'", k, current.get(k), v);

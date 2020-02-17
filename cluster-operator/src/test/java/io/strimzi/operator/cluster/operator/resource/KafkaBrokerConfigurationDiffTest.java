@@ -69,88 +69,6 @@ public class KafkaBrokerConfigurationDiffTest {
         return current;
     }
 
-    /*@Test
-    public void testEmptyDiff() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(0));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
-    }
-
-    @Test
-    public void testReadOnlyEntryAddedToDesired() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("lala", "42", true, true, true));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(1));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
-    }
-
-    @Test
-    public void testChangeToTheSameValueChangeAble() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("min.insync.replicas", "1", true, true, true));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(0));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
-    }
-
-    @Test
-    public void testChangeToTheSameValueUnchangeAble() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("metrics.num.samples", "2", true, true, true));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(0));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
-    }
-
-    @Test
-    public void testUserAddedCustomProperty() {
-        // not sure if we need rolling update. Current implementations decides we need.
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("karel", "2", false, true, false));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(1));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
-    }
-
-    @Test
-    public void testDynamicallyChangeablePropAddedToDesired() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("advertised.listeners", "7", false, true, false));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(1));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(true));
-    }
-
-    @Test
-    public void testDynamicallyUnchangeablePropAddedToDesired() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("metrics.num.samples", "7", false, true, false));
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(1));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
-    }
-
-    @Test
-    public void testDynamicallyChangeableAndUnchangeablePropAddedToDesired() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("advertised.listeners", "7", false, true, false)); // changeable
-        ces.add(new ConfigEntry("metrics.num.samples", "7", false, true, false)); // unchangeable
-        KafkaConfigurationDiff kcd = new KafkaConfigurationDiff(getTestingCurrentConfiguration(), getTestingDesiredConfiguration(ces), kafkaVersion);
-        Set<String> result = kcd.getDiff();
-        assertThat(result.size(), is(2));
-        assertThat(kcd.isConfigurationDynamicallyChangeable(), is(false));
-        assertThat(kcd.isRollingUpdateNeeded(), is(true));
-    }*/
-
     @Test
     public void testDefaultValue() {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
@@ -215,21 +133,66 @@ public class KafkaBrokerConfigurationDiffTest {
     }
 
     @Test
-    public void testChangedZookeeperConnect() {
+    public void testChangedAdvertisedListenerFromNothingToDefault() {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("zookeeper.connect", "karel", false, true, false));
+        ces.add(new ConfigEntry("advertised.listeners", "null", false, true, false));
+        KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(ces), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
+        assertThat(kcd.isRollingUpdateNeeded(), is(false));
+    }
+
+    @Test
+    public void testChangedAdvertisedListenerFromNonDefaultToDefault() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("advertised.listeners", "null", false, true, false));
         KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
         assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
         assertThat(kcd.isRollingUpdateNeeded(), is(true));
     }
 
-    //@Test
+    @Test
+    public void testChangedZookeeperConnect() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("zookeeper.connect", "karel", false, true, false));
+        KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
+        assertThat(kcd.isRollingUpdateNeeded(), is(false));
+    }
+
+    @Test
     public void testChangedLogDirs() {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
         ces.add(new ConfigEntry("log.dirs", "/var/lib/kafka/data/karel", false, true, false));
         KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
         assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
         assertThat(kcd.isRollingUpdateNeeded(), is(true));
+    }
+
+    @Test
+    public void testLogDirsNonDefaultToDefault() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("log.dirs", "null", false, true, false));
+        KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
+        assertThat(kcd.isRollingUpdateNeeded(), is(true));
+    }
+
+    @Test
+    public void testLogDirsDefaultToDefault() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("log.dirs", "null", false, true, false));
+        KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(ces), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
+        assertThat(kcd.isRollingUpdateNeeded(), is(false));
+    }
+
+    @Test
+    public void testUnchangedLogDirs() {
+        ArrayList<ConfigEntry> ces = new ArrayList<>();
+        ces.add(new ConfigEntry("log.dirs", "/var/lib/kafka/data/karel", false, true, false));
+        KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(ces), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
+        assertThat(kcd.isRollingUpdateNeeded(), is(false));
     }
 
     @Test
@@ -249,4 +212,5 @@ public class KafkaBrokerConfigurationDiffTest {
         assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
         assertThat(kcd.isRollingUpdateNeeded(), is(false));
     }
+
 }
