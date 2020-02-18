@@ -2424,4 +2424,8 @@ public class KafkaCluster extends AbstractModel {
 
         return cm;
     }
+
+    public KafkaVersion getKafkaVersion() {
+        return this.kafkaVersion;
+    }
 }

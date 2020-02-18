@@ -46,15 +46,18 @@ public class KafkaBrokerConfigurationDiff {
             + "|broker\\.id)$");
 
     public KafkaBrokerConfigurationDiff(Map<ConfigResource, Config> current, ConfigMap desired, KafkaVersion kafkaVersion, int brokerId) {
-        this.currentEntries = current.entrySet().iterator().next().getValue().entries();
+        this.currentEntries = current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId))).entries();
         this.desired = desired;
         this.kafkaVersion = kafkaVersion;
-        this.diff = getDiff();
         this.brokerId = brokerId;
+        this.diff = computeDiff();
     }
 
     private HashMap<String, String> configMap2Map() {
         HashMap<String, String> result = new HashMap<String, String>();
+        if (desired == null || desired.getData() == null || desired.getData().get("server.config") == null) {
+            return result;
+        }
         String desireConf = desired.getData().get("server.config");
 
         List<String> list = getLinesWithoutCommentsAndEmptyLines(desireConf);
@@ -90,7 +93,7 @@ public class KafkaBrokerConfigurationDiff {
         });
     }
 
-    public KafkaConfiguration getDiff() {
+    private KafkaConfiguration computeDiff() {
         HashMap<String, String> desiredMap = configMap2Map();
         Map<String, String> currentMap = new HashMap<>();
 
@@ -106,6 +109,10 @@ public class KafkaBrokerConfigurationDiff {
         diffString = diffString.substring(1, diffString.length() - 1).replace(", ", "\n");
 
         return KafkaConfiguration.unvalidated(diffString);
+    }
+
+    public KafkaConfiguration getDiff() {
+        return this.diff;
     }
 
     @SuppressWarnings("checkstyle:Regexp")

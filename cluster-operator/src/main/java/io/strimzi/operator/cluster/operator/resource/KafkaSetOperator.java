@@ -89,17 +89,16 @@ public class KafkaSetOperator extends StatefulSetOperator {
 
     /**
      * @param sts Stateful set to which kafka pod belongs
-     * @param pod Specific kafka pod
+     * @param podId Specific kafka pod
      * @return a future which contains map with all kafka properties including their values
      */
-    public Future<Map<ConfigResource, Config>> getCurrentConfig(StatefulSet sts, Pod pod) {
+    public Future<Map<ConfigResource, Config>> getCurrentConfig(StatefulSet sts, int podId) {
         String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
         String namespace = sts.getMetadata().getNamespace();
         Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
                 namespace, KafkaResources.clusterCaCertificateSecretName(cluster));
         Future<Secret> coKeySecretFuture = secretOperations.getAsync(
                 namespace, ClusterOperator.secretName(cluster));
-        int podId = Integer.parseInt(pod.getMetadata().getName().substring(pod.getMetadata().getName().lastIndexOf("-") + 1));
         return CompositeFuture.join(clusterCaKeySecretFuture, coKeySecretFuture).compose(compositeFuture -> {
             Secret clusterCaKeySecret = compositeFuture.resultAt(0);
             if (clusterCaKeySecret == null) {

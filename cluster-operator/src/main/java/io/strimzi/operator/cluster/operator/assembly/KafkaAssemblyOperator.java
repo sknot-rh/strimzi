@@ -70,6 +70,7 @@ import io.strimzi.operator.cluster.model.NodeUtils;
 import io.strimzi.operator.cluster.model.StatusDiff;
 import io.strimzi.operator.cluster.model.StorageUtils;
 import io.strimzi.operator.cluster.model.ZookeeperCluster;
+import io.strimzi.operator.cluster.operator.resource.KafkaBrokerConfigurationDiff;
 import io.strimzi.operator.cluster.operator.resource.KafkaSetOperator;
 import io.strimzi.operator.cluster.operator.resource.KafkaSpecChecker;
 import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
@@ -98,6 +99,8 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.common.config.ConfigResource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.quartz.CronExpression;
@@ -307,6 +310,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 .compose(state -> state.kafkaJmxSecret())
                 .compose(state -> state.kafkaPodDisruptionBudget())
                 .compose(state -> state.kafkaStatefulSet())
+                .compose(state -> state.kafkaBrokerDynamicConfiguration())
                 .compose(state -> state.kafkaRollingUpdate())
                 .compose(state -> state.kafkaScaleUp())
                 .compose(state -> state.kafkaPodsReady())
@@ -1621,6 +1625,31 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                         this.kafkaService = kafkaCluster.generateService();
                         this.kafkaHeadlessService = kafkaCluster.generateHeadlessService();
 
+                        return Future.succeededFuture(this);
+                    });
+        }
+
+        Future<ReconciliationState> kafkaBrokerDynamicConfiguration() {
+            log.info("Determining dynamic changes");
+            return kafkaSetOperations.getAsync(namespace, KafkaCluster.kafkaClusterName(name))
+                    .compose(sts -> {
+                        log.info("kafka pods {}", sts.getSpec().getReplicas());
+                        for (int podId = 0; podId < sts.getSpec().getReplicas(); podId++) {
+                            Future<Map<ConfigResource, Config>> futCurrent = kafkaSetOperations.getCurrentConfig(sts, podId);
+                            log.info("fetching CM {}/{}", namespace, KafkaCluster.metricAndLogConfigsName(name));
+                            Future<ConfigMap> futDesired = configMapOperations.getAsync(namespace, KafkaCluster.metricAndLogConfigsName(name));
+                            int finalPodId = podId;
+                            log.info("determining pod {}", finalPodId);
+                            CompositeFuture.join(futCurrent, futDesired).compose(res -> {
+                                KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.resultAt(0), res.resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
+                                log.info("lalalala velikost diffu {}", configurationDiff.getDiff().asOrderedProperties().asMap().size());
+                                configurationDiff.getDiff().asOrderedProperties().asMap().entrySet().forEach(entry -> {
+                                    log.info("lalalala key:{} value:{}", entry.getKey(), entry.getValue());
+                                });
+                                log.info("lalalala dynChangeable?:{}", configurationDiff.isRollingUpdateNeeded());
+                                return Future.succeededFuture();
+                            });
+                        }
                         return Future.succeededFuture(this);
                     });
         }
