@@ -416,7 +416,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         // Certificate change indicators
         private boolean existingZookeeperCertsChanged = false;
         private boolean existingKafkaCertsChanged = false;
-        private boolean kafkaPodsUpdatedDynamically = false;
+        private Map<Integer, Boolean> kafkaPodsUpdatedDynamically = new HashMap<>();
         private boolean existingKafkaExporterCertsChanged = false;
         private boolean existingEntityOperatorCertsChanged = false;
 
@@ -1651,8 +1651,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                                                 KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.result().resultAt(0), res.result().resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
                                                 log.debug("Diff dynamically changeable? {}", !configurationDiff.isRollingUpdateNeeded());
 
-                                                // TODO each pod has its own value, use of pod label
-                                                kafkaPodsUpdatedDynamically = !configurationDiff.isRollingUpdateNeeded();
+                                                kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.isRollingUpdateNeeded());
                                                 if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
                                                     ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
                                                 }

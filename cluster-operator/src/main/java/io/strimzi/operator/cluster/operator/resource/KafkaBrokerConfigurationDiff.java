@@ -34,6 +34,7 @@ public class KafkaBrokerConfigurationDiff {
     private KafkaConfiguration diff;
     private KafkaVersion kafkaVersion;
     private int brokerId;
+    private ArrayList<String> deletedEntries;
 
     public static final Pattern IGNORABLE_PROPERTIES = Pattern.compile("^(.*-909[1-3].ssl.keystore.location"
             + "|.*-909[1-3]\\.ssl\\.keystore\\.password"
@@ -53,6 +54,7 @@ public class KafkaBrokerConfigurationDiff {
         this.desired = desired;
         this.kafkaVersion = kafkaVersion;
         this.brokerId = brokerId;
+        this.deletedEntries = new ArrayList<String>();
         this.diff = computeDiff();
     }
 
@@ -137,6 +139,7 @@ public class KafkaBrokerConfigurationDiff {
                     String defVal = KafkaConfiguration.getDefaultValueOfProperty(entry.getKey(), kafkaVersion) == null ? "null" : KafkaConfiguration.getDefaultValueOfProperty(entry.getKey(), kafkaVersion).toString();
                     log.info("{} had value {} and was removed from desired. Setting {}", entry.getKey(), entry.getValue(), defVal);
                     difference.put(entry.getKey(), defVal);
+                    deletedEntries.add(entry.getKey());
                 }
             }
         });
@@ -172,8 +175,12 @@ public class KafkaBrokerConfigurationDiff {
         Collection<AlterConfigOp> updatedCE = new ArrayList<>();
         currentEntries.forEach(entry -> {
             if (diff.asOrderedProperties().asMap().containsKey(entry.name())) {
-                //TODO all AlterConfigOp
-                updatedCE.add(new AlterConfigOp(new ConfigEntry(entry.name(), diff.getConfigOption(entry.name())), AlterConfigOp.OpType.SET));
+                if (deletedEntries.contains(entry.name())) {
+                    deletedEntries.remove(entry.name());
+                    updatedCE.add(new AlterConfigOp(new ConfigEntry(entry.name(), diff.getConfigOption(entry.name())), AlterConfigOp.OpType.DELETE));
+                } else {
+                    updatedCE.add(new AlterConfigOp(new ConfigEntry(entry.name(), diff.getConfigOption(entry.name())), AlterConfigOp.OpType.SET));
+                }
             }
         });
         updated.put(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)), updatedCE);
