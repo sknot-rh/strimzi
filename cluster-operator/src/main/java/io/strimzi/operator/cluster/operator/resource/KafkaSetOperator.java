@@ -87,18 +87,16 @@ public class KafkaSetOperator extends StatefulSetOperator {
                 .rollingRestart(podNeedsRestart);
     }
 
-    /**
-     * @param sts Stateful set to which kafka pod belongs
-     * @param podId Specific kafka pod
-     * @return a future which contains map with all kafka properties including their values
-     */
-    public Future<Map<ConfigResource, Config>> getCurrentConfig(StatefulSet sts, int podId) {
+    public Future<AdminClient> getAdminClient(StatefulSet sts, int podId) {
+        Promise<AdminClient> acPromise = Promise.promise();
         String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
         String namespace = sts.getMetadata().getNamespace();
         Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
                 namespace, KafkaResources.clusterCaCertificateSecretName(cluster));
         Future<Secret> coKeySecretFuture = secretOperations.getAsync(
                 namespace, ClusterOperator.secretName(cluster));
+        String hostname = KafkaCluster.podDnsName(namespace, cluster, KafkaCluster.kafkaPodName(cluster, podId)) + ":" + KafkaCluster.REPLICATION_PORT;
+
         return CompositeFuture.join(clusterCaKeySecretFuture, coKeySecretFuture).compose(compositeFuture -> {
             Secret clusterCaKeySecret = compositeFuture.resultAt(0);
             if (clusterCaKeySecret == null) {
@@ -108,23 +106,20 @@ public class KafkaSetOperator extends StatefulSetOperator {
             if (coKeySecret == null) {
                 return Future.failedFuture(missingSecretFuture(namespace, ClusterOperator.secretName(cluster)));
             }
-            return getCurrentConfig(podId, namespace, cluster, clusterCaKeySecret, coKeySecret);
+            acPromise.complete(adminClientProvider.createAdminClient(hostname, clusterCaKeySecret, coKeySecret));
+            return acPromise.future();
         });
     }
 
-    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, String namespace, String cluster,
-                                         Secret clusterCaCertSecret, Secret coKeySecret) {
+    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, AdminClient ac) {
         Promise<Map<ConfigResource, Config>> futRes = Promise.promise();
-        String hostname = KafkaCluster.podDnsName(namespace, cluster, KafkaCluster.kafkaPodName(cluster, podId)) + ":" + KafkaCluster.REPLICATION_PORT;
-        AdminClient ac = adminClientProvider.createAdminClient(hostname, clusterCaCertSecret, coKeySecret);
         ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
         DescribeConfigsResult configs = ac.describeConfigs(Collections.singletonList(resource));
-        ac.close();
         Map<ConfigResource, Config> config = new HashMap<>();
         try {
-            config = configs.all().get(1000, TimeUnit.MILLISECONDS);
+            config = configs.all().get(2000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            e.printStackTrace();
+            log.warn("Error while getting broker {} config {}", podId, e.getMessage());
         }
         Properties result = new Properties();
         config.forEach((key, value) -> {

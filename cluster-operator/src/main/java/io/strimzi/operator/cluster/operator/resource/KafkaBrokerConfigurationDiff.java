@@ -8,6 +8,7 @@ package io.strimzi.operator.cluster.operator.resource;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.strimzi.operator.cluster.model.KafkaConfiguration;
 import io.strimzi.operator.cluster.model.KafkaVersion;
+import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.common.config.ConfigResource;
@@ -27,6 +28,7 @@ import java.util.regex.Pattern;
 public class KafkaBrokerConfigurationDiff {
 
     private static final Logger log = LogManager.getLogger(KafkaBrokerConfigurationDiff.class.getName());
+    private final Map<ConfigResource, Config> current;
     private Collection<ConfigEntry> currentEntries;
     private ConfigMap desired;
     private KafkaConfiguration diff;
@@ -46,6 +48,7 @@ public class KafkaBrokerConfigurationDiff {
             + "|broker\\.id)$");
 
     public KafkaBrokerConfigurationDiff(Map<ConfigResource, Config> current, ConfigMap desired, KafkaVersion kafkaVersion, int brokerId) {
+        this.current = current;
         this.currentEntries = current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId))).entries();
         this.desired = desired;
         this.kafkaVersion = kafkaVersion;
@@ -131,8 +134,9 @@ public class KafkaBrokerConfigurationDiff {
             // some value was set to non-default value, then the entry was removed from desired -> we want to use default value
             if (!desired.keySet().contains(entry.getKey()) && !isDesiredPropertyDefaultValue(entry.getKey(), entry.getValue())) {
                 if (!IGNORABLE_PROPERTIES.matcher(entry.getKey()).matches()) {
-                    log.info("{} had value {} and was removed from desired. Setting {}", entry.getKey(), entry.getValue(), KafkaConfiguration.getDefaultValueOfProperty(entry.getKey(), kafkaVersion));
-                    difference.put(entry.getKey(), entry.getValue());
+                    String defVal = KafkaConfiguration.getDefaultValueOfProperty(entry.getKey(), kafkaVersion) == null ? "null" : KafkaConfiguration.getDefaultValueOfProperty(entry.getKey(), kafkaVersion).toString();
+                    log.info("{} had value {} and was removed from desired. Setting {}", entry.getKey(), entry.getValue(), defVal);
+                    difference.put(entry.getKey(), defVal);
                 }
             }
         });
@@ -148,6 +152,10 @@ public class KafkaBrokerConfigurationDiff {
         return false;
     }
 
+    public boolean dynamicChangesOnly() {
+        return !isRollingUpdateNeeded();
+    }
+
     public boolean isRollingUpdateNeeded() {
         // TODO all the magic of listeners combinations
         return diff.anyReadOnly(kafkaVersion)
@@ -157,5 +165,18 @@ public class KafkaBrokerConfigurationDiff {
 
     public boolean advertisedListernesChanged() {
         return diff.asOrderedProperties().asMap().keySet().contains("advertised.listeners");
+    }
+
+    public Map<ConfigResource, Collection<AlterConfigOp>> getUpdatedConfig() {
+        Map<ConfigResource, Collection<AlterConfigOp>> updated = new HashMap<>();
+        Collection<AlterConfigOp> updatedCE = new ArrayList<>();
+        currentEntries.forEach(entry -> {
+            if (diff.asOrderedProperties().asMap().containsKey(entry.name())) {
+                //TODO all AlterConfigOp
+                updatedCE.add(new AlterConfigOp(new ConfigEntry(entry.name(), diff.getConfigOption(entry.name())), AlterConfigOp.OpType.SET));
+            }
+        });
+        updated.put(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)), updatedCE);
+        return updated;
     }
 }

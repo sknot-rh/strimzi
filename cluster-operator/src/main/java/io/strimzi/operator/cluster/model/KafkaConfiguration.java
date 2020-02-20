@@ -10,6 +10,8 @@ import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.kafka.config.model.ConfigModel;
 import io.strimzi.kafka.config.model.ConfigModels;
 import io.strimzi.kafka.config.model.Scope;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +32,8 @@ import static java.util.Collections.emptyList;
  * Class for handling Kafka configuration passed by the user
  */
 public class KafkaConfiguration extends AbstractConfiguration {
+    private static final Logger log = LogManager.getLogger(KafkaConfiguration.class.getName());
+
     public static final String INTERBROKER_PROTOCOL_VERSION = "inter.broker.protocol.version";
     public static final String LOG_MESSAGE_FORMAT_VERSION = "log.message.format.version";
 
@@ -171,10 +175,13 @@ public class KafkaConfiguration extends AbstractConfiguration {
      */
     @SuppressWarnings("checkstyle:Regexp")
     public static boolean isValueOfPropertyDefault(String property, String value, KafkaVersion kafkaVersion) {
+        value = value == null ? "null" : value;
         Map<String, ConfigModel> c = readConfigModel(kafkaVersion);
         Optional<Map.Entry<String, ConfigModel>> optProp = c.entrySet().stream().filter(entry -> entry.getKey().equals(property)).findFirst();
         if (optProp.isPresent()) {
-            return optProp.get().getValue().getDefaultVal().toString().replace("\"", "").toLowerCase(Locale.ENGLISH).equals(value.toLowerCase(Locale.ENGLISH));
+            return optProp.get().getValue().getDefaultVal().toString()
+                    .replace("\"", "").toLowerCase(Locale.ENGLISH)
+                    .equals(value.toLowerCase(Locale.ENGLISH));
         } else {
             // custom property
             return false;

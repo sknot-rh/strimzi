@@ -99,6 +99,7 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.apache.kafka.clients.admin.AlterConfigsOptions;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.logging.log4j.LogManager;
@@ -415,6 +416,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         // Certificate change indicators
         private boolean existingZookeeperCertsChanged = false;
         private boolean existingKafkaCertsChanged = false;
+        private boolean kafkaPodsUpdatedDynamically = false;
         private boolean existingKafkaExporterCertsChanged = false;
         private boolean existingEntityOperatorCertsChanged = false;
 
@@ -1630,28 +1632,37 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         }
 
         Future<ReconciliationState> kafkaBrokerDynamicConfiguration() {
-            log.info("Determining dynamic changes");
+
             return kafkaSetOperations.getAsync(namespace, KafkaCluster.kafkaClusterName(name))
-                    .compose(sts -> {
-                        log.info("kafka pods {}", sts.getSpec().getReplicas());
-                        for (int podId = 0; podId < sts.getSpec().getReplicas(); podId++) {
-                            Future<Map<ConfigResource, Config>> futCurrent = kafkaSetOperations.getCurrentConfig(sts, podId);
-                            log.info("fetching CM {}/{}", namespace, KafkaCluster.metricAndLogConfigsName(name));
-                            Future<ConfigMap> futDesired = configMapOperations.getAsync(namespace, KafkaCluster.metricAndLogConfigsName(name));
-                            int finalPodId = podId;
-                            log.info("determining pod {}", finalPodId);
-                            CompositeFuture.join(futCurrent, futDesired).compose(res -> {
-                                KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.resultAt(0), res.resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
-                                log.info("lalalala velikost diffu {}", configurationDiff.getDiff().asOrderedProperties().asMap().size());
-                                configurationDiff.getDiff().asOrderedProperties().asMap().entrySet().forEach(entry -> {
-                                    log.info("lalalala key:{} value:{}", entry.getKey(), entry.getValue());
-                                });
-                                log.info("lalalala dynChangeable?:{}", configurationDiff.isRollingUpdateNeeded());
-                                return Future.succeededFuture();
-                            });
-                        }
-                        return Future.succeededFuture(this);
-                    });
+                .compose(sts -> {
+                    int replicas = kafkaCluster.getReplicas();
+                    List<Future> configFutures = new ArrayList<>(replicas);
+
+                    for (int podId = 0; podId < replicas; podId++) {
+                        int finalPodId = podId;
+                        configFutures.add(
+                            kafkaSetOperations.getAdminClient(sts, podId)
+                                .compose(ac -> {
+                                    Future<Map<ConfigResource, Config>> futCurrent = kafkaSetOperations.getCurrentConfig(finalPodId, ac);
+                                    Future<ConfigMap> futDesired = configMapOperations.getAsync(namespace, KafkaCluster.metricAndLogConfigsName(name));
+                                    log.debug("Determining kafka pod {} dynamic update ability", finalPodId);
+                                    return CompositeFuture.join(futCurrent, futDesired)
+                                            .compose(res -> {
+                                                KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.result().resultAt(0), res.result().resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
+                                                log.debug("Diff dynamically changeable? {}", !configurationDiff.isRollingUpdateNeeded());
+
+                                                // TODO each pod has its own value, use of pod label
+                                                kafkaPodsUpdatedDynamically = !configurationDiff.isRollingUpdateNeeded();
+                                                if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
+                                                    ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
+                                                }
+                                                ac.close();
+                                                return Future.succeededFuture();
+                                            });
+                                }));
+                    }
+                    return CompositeFuture.join(configFutures);
+                }).map(this);
         }
 
         Future<ReconciliationState> withKafkaDiff(Future<ReconcileResult<StatefulSet>> r) {
@@ -2465,7 +2476,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         Future<ReconciliationState> kafkaRollingUpdate() {
             return withVoid(kafkaSetOperations.maybeRollingUpdate(kafkaDiffs.resource(), pod ->
-                    getReasonsToRestartPod(kafkaDiffs.resource(), pod, existingKafkaCertsChanged, this.clusterCa, this.clientsCa)
+                    getReasonsToRestartPod(kafkaDiffs.resource(), pod, existingKafkaCertsChanged, kafkaPodsUpdatedDynamically, this.clusterCa, this.clientsCa)
             ));
         }
 
@@ -3100,6 +3111,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
          */
         private String getReasonsToRestartPod(StatefulSet sts, Pod pod,
                                        boolean nodeCertsChange,
+                                       boolean podUpdatedDynamically,
                                        Ca... cas) {
             if (pod == null)    {
                 // When the Pod doesn't exist, it doesn't need to be restarted.
@@ -3123,7 +3135,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     reasons.add("Pod has old " + ca + " certificate generation");
                 }
             }
-            if (!isPodUpToDate) {
+            if (!isPodUpToDate || !podUpdatedDynamically) {
                 reasons.add("Pod has old generation");
             }
             if (fsResizingRestartRequest.contains(pod.getMetadata().getName()))   {
