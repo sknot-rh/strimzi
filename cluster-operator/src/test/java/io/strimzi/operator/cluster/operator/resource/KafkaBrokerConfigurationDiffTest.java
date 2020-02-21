@@ -49,7 +49,7 @@ public class KafkaBrokerConfigurationDiffTest {
 
     public Map<ConfigResource, Config> getTestingCurrentConfiguration(ArrayList<ConfigEntry> additional) {
         Map<ConfigResource, Config> current = new HashMap<>();
-        ConfigResource cr = new ConfigResource(ConfigResource.Type.BROKER, "2");
+        ConfigResource cr = new ConfigResource(ConfigResource.Type.BROKER, "0");
         InputStream is = getClass().getClassLoader().getResourceAsStream("current-kafka-broker.conf");
 
         List<String> configList = Arrays.asList(TestUtils.readResource(is).split(System.getProperty("line.separator")));

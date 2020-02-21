@@ -25,6 +25,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+/**
+ * Computes a diff between current diff supplied as a Map and desired config supplied as a ConfigMap
+ *
+ */
 public class KafkaBrokerConfigurationDiff {
 
     private static final Logger log = LogManager.getLogger(KafkaBrokerConfigurationDiff.class.getName());
@@ -36,26 +40,40 @@ public class KafkaBrokerConfigurationDiff {
     private int brokerId;
     private ArrayList<String> deletedEntries;
 
-    public static final Pattern IGNORABLE_PROPERTIES = Pattern.compile("^(.*-909[1-3].ssl.keystore.location"
-            + "|.*-909[1-3]\\.ssl\\.keystore\\.password"
-            + "|.*-909[1-3]\\.ssl\\.keystore\\.type"
-            + "|.*-909[1-3]\\.ssl\\.truststore\\.location"
-            + "|.*-909[1-3]\\.ssl\\.truststore\\.password"
-            + "|.*-909[1-3]\\.ssl\\.truststore\\.type"
+    public static final Pattern IGNORABLE_PROPERTIES = Pattern.compile(
+            "^(broker\\.id"
+            + "|.*-909[1-4].ssl.keystore.location"
+            + "|.*-909[1-4]\\.ssl\\.keystore\\.password"
+            + "|.*-909[1-4]\\.ssl\\.keystore\\.type"
+            + "|.*-909[1-4]\\.ssl\\.truststore\\.location"
+            + "|.*-909[1-4]\\.ssl\\.truststore\\.password"
+            + "|.*-909[1-4]\\.ssl\\.truststore\\.type"
+            + "|.*-909[1-4]\\.ssl\\.client\\.auth"
+            + "|.*-909[1-4]\\.scram-sha-512\\.sasl\\.jaas\\.config"
+            + "|.*-909[1-4]\\.sasl\\.enabled\\.mechanisms"
             //+ "|advertised\\.listeners"
             + "|zookeeper\\.connect"
-            //+ "|log\\.dirs"
-            + "|broker\\.rack"
-            + "|broker\\.id)$");
+            //+ "|log\\.dirs"*/
+            + "|broker\\.rack)$");
 
     public KafkaBrokerConfigurationDiff(Map<ConfigResource, Config> current, ConfigMap desired, KafkaVersion kafkaVersion, int brokerId) {
         this.current = current;
-        this.currentEntries = current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId))).entries();
+        this.diff = emptyKafkaConf(); // init
         this.desired = desired;
         this.kafkaVersion = kafkaVersion;
         this.brokerId = brokerId;
         this.deletedEntries = new ArrayList<String>();
+        Config brokerConfigs = current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)));
+        if (brokerConfigs == null) {
+            throw new RuntimeException("Failed to get broker " + brokerId + " configuration");
+        }
+        this.currentEntries = brokerConfigs.entries();
         this.diff = computeDiff();
+    }
+
+    private KafkaConfiguration emptyKafkaConf() {
+        Map<String, Object> conf = new HashMap<>();
+        return new KafkaConfiguration(conf.entrySet());
     }
 
     private HashMap<String, String> configMap2Map() {
@@ -161,7 +179,9 @@ public class KafkaBrokerConfigurationDiff {
 
     public boolean isRollingUpdateNeeded() {
         // TODO all the magic of listeners combinations
-        return diff.anyReadOnly(kafkaVersion)
+        if (diff == null) {
+            return false;
+        } else return diff.anyReadOnly(kafkaVersion)
                 || !diff.unknownConfigs(kafkaVersion).isEmpty()
                 || advertisedListernesChanged();
     }
