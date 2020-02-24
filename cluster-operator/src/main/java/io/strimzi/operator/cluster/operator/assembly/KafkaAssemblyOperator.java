@@ -71,6 +71,7 @@ import io.strimzi.operator.cluster.model.StatusDiff;
 import io.strimzi.operator.cluster.model.StorageUtils;
 import io.strimzi.operator.cluster.model.ZookeeperCluster;
 import io.strimzi.operator.cluster.operator.resource.KafkaBrokerConfigurationDiff;
+import io.strimzi.operator.cluster.operator.resource.KafkaBrokerConfigurationHelper;
 import io.strimzi.operator.cluster.operator.resource.KafkaSetOperator;
 import io.strimzi.operator.cluster.operator.resource.KafkaSpecChecker;
 import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
@@ -1632,7 +1633,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         }
 
         Future<ReconciliationState> kafkaBrokerDynamicConfiguration() {
-
+            KafkaBrokerConfigurationHelper kbch = new KafkaBrokerConfigurationHelper(kafkaSetOperations.getAdminClientProvider(), secretOperations);
             return kafkaSetOperations.getAsync(namespace, KafkaCluster.kafkaClusterName(name))
                 .compose(sts -> {
                     int replicas = kafkaCluster.getReplicas();
@@ -1641,17 +1642,17 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     for (int podId = 0; podId < replicas; podId++) {
                         int finalPodId = podId;
                         configFutures.add(
-                            kafkaSetOperations.getAdminClient(sts, podId)
+                            kbch.adminClient(sts, podId)
                                 .compose(ac -> {
-                                    Future<Map<ConfigResource, Config>> futCurrent = kafkaSetOperations.getCurrentConfig(finalPodId, ac);
+                                    Future<Map<ConfigResource, Config>> futCurrent = kbch.getCurrentConfig(finalPodId, ac);
                                     Future<ConfigMap> futDesired = configMapOperations.getAsync(namespace, KafkaCluster.metricAndLogConfigsName(name));
                                     log.debug("Determining kafka pod {} dynamic update ability", finalPodId);
                                     return CompositeFuture.join(futCurrent, futDesired)
                                             .compose(res -> {
                                                 KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.result().resultAt(0), res.result().resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
-                                                log.debug("Diff dynamically changeable? {}", !configurationDiff.isRollingUpdateNeeded());
+                                                log.debug("Diff dynamically changeable? {}", !configurationDiff.cannotBeUpdatedDynamically());
 
-                                                kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.isRollingUpdateNeeded());
+                                                kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.cannotBeUpdatedDynamically());
                                                 if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
                                                     ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
                                                 }

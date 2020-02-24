@@ -51,9 +51,10 @@ public class KafkaBrokerConfigurationDiff {
             + "|.*-909[1-4]\\.ssl\\.client\\.auth"
             + "|.*-909[1-4]\\.scram-sha-512\\.sasl\\.jaas\\.config"
             + "|.*-909[1-4]\\.sasl\\.enabled\\.mechanisms"
-            //+ "|advertised\\.listeners"
+            + "|advertised\\.listeners"
             + "|zookeeper\\.connect"
             //+ "|log\\.dirs"*/
+            + "|super\\.users"
             + "|broker\\.rack)$");
 
     public KafkaBrokerConfigurationDiff(Map<ConfigResource, Config> current, ConfigMap desired, KafkaVersion kafkaVersion, int brokerId) {
@@ -173,21 +174,12 @@ public class KafkaBrokerConfigurationDiff {
         return false;
     }
 
-    public boolean dynamicChangesOnly() {
-        return !isRollingUpdateNeeded();
-    }
-
-    public boolean isRollingUpdateNeeded() {
+    public boolean cannotBeUpdatedDynamically() {
         // TODO all the magic of listeners combinations
         if (diff == null) {
             return false;
         } else return diff.anyReadOnly(kafkaVersion)
-                || !diff.unknownConfigs(kafkaVersion).isEmpty()
-                || advertisedListernesChanged();
-    }
-
-    public boolean advertisedListernesChanged() {
-        return diff.asOrderedProperties().asMap().keySet().contains("advertised.listeners");
+                || !diff.unknownConfigs(kafkaVersion).isEmpty();
     }
 
     public Map<ConfigResource, Collection<AlterConfigOp>> getUpdatedConfig() {

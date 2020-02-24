@@ -10,15 +10,8 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.strimzi.operator.common.AdminClientProvider;
 import io.strimzi.operator.common.BackOff;
-import io.strimzi.operator.common.model.Labels;
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.Config;
-import org.apache.kafka.clients.admin.DescribeConfigsResult;
-import org.apache.kafka.common.config.ConfigResource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -87,49 +80,7 @@ public class KafkaSetOperator extends StatefulSetOperator {
                 .rollingRestart(podNeedsRestart);
     }
 
-    public Future<AdminClient> getAdminClient(StatefulSet sts, int podId) {
-        Promise<AdminClient> acPromise = Promise.promise();
-        String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
-        String namespace = sts.getMetadata().getNamespace();
-        Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
-                namespace, KafkaResources.clusterCaCertificateSecretName(cluster));
-        Future<Secret> coKeySecretFuture = secretOperations.getAsync(
-                namespace, ClusterOperator.secretName(cluster));
-        String hostname = KafkaCluster.podDnsName(namespace, cluster, KafkaCluster.kafkaPodName(cluster, podId)) + ":" + KafkaCluster.REPLICATION_PORT;
-
-        return CompositeFuture.join(clusterCaKeySecretFuture, coKeySecretFuture).compose(compositeFuture -> {
-            Secret clusterCaKeySecret = compositeFuture.resultAt(0);
-            if (clusterCaKeySecret == null) {
-                return Future.failedFuture(missingSecretFuture(namespace, KafkaCluster.clusterCaKeySecretName(cluster)));
-            }
-            Secret coKeySecret = compositeFuture.resultAt(1);
-            if (coKeySecret == null) {
-                return Future.failedFuture(missingSecretFuture(namespace, ClusterOperator.secretName(cluster)));
-            }
-            acPromise.complete(adminClientProvider.createAdminClient(hostname, clusterCaKeySecret, coKeySecret));
-            return acPromise.future();
-        });
+    public AdminClientProvider getAdminClientProvider() {
+        return adminClientProvider;
     }
-
-    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, AdminClient ac) {
-        Promise<Map<ConfigResource, Config>> futRes = Promise.promise();
-        ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
-        DescribeConfigsResult configs = ac.describeConfigs(Collections.singletonList(resource));
-        Map<ConfigResource, Config> config = new HashMap<>();
-        try {
-            config = configs.all().get(2000, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            log.warn("Error while getting broker {} config {}", podId, e.getMessage());
-        }
-        Properties result = new Properties();
-        config.forEach((key, value) -> {
-            value.entries().forEach(entry -> {
-                String val = entry.value() == null ? "null" : entry.value();
-                result.put(entry.name(), val);
-            });
-        });
-        futRes.complete(config);
-        return futRes.future();
-    }
-
 }
