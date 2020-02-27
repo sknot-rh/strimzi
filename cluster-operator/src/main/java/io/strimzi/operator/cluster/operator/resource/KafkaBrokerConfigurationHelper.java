@@ -31,6 +31,9 @@ import java.util.concurrent.TimeoutException;
 
 import static io.strimzi.operator.cluster.operator.resource.StatefulSetOperator.missingSecretFuture;
 
+/**
+ * This class contains methods for getting current configuration from the kafka brokers asynchronously.
+ */
 public class KafkaBrokerConfigurationHelper {
 
     private final AdminClientProvider adminClientProvider;

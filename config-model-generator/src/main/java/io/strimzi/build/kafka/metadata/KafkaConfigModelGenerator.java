@@ -77,7 +77,7 @@ public class KafkaConfigModelGenerator {
             ConfigModel descriptor = new ConfigModel();
             descriptor.setType(type);
             descriptor.setScope(scope);
-            descriptor.setDefaultVal(defaultVal);
+            descriptor.setDefaultValue(defaultVal);
 
             if (key.validator instanceof ConfigDef.Range) {
                 descriptor = range(key, descriptor);
