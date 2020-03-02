@@ -9,12 +9,13 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.strimzi.api.kafka.model.KafkaResources;
 import io.strimzi.operator.cluster.ClusterOperator;
 import io.strimzi.operator.cluster.model.KafkaCluster;
+import io.strimzi.operator.common.AdminClientProvider;
 import io.strimzi.operator.common.model.Labels;
 import io.strimzi.operator.common.operator.resource.SecretOperator;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.common.config.ConfigResource;
@@ -45,8 +46,8 @@ public class KafkaBrokerConfigurationHelper {
         this.secretOperations = secretOperations;
     }
 
-    public Future<AdminClient> adminClient(StatefulSet sts, int podId) {
-        Promise<AdminClient> acPromise = Promise.promise();
+    public Future<Admin> adminClient(StatefulSet sts, int podId) {
+        Promise<Admin> acPromise = Promise.promise();
         String cluster = sts.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
         String namespace = sts.getMetadata().getNamespace();
         Future<Secret> clusterCaKeySecretFuture = secretOperations.getAsync(
@@ -64,12 +65,12 @@ public class KafkaBrokerConfigurationHelper {
             if (coKeySecret == null) {
                 return Future.failedFuture(missingSecretFuture(namespace, ClusterOperator.secretName(cluster)));
             }
-            acPromise.complete(adminClientProvider.createAdminClient(hostname, clusterCaKeySecret, coKeySecret));
+            acPromise.complete(adminClientProvider.createAdminClient(hostname, clusterCaKeySecret, coKeySecret, "cluster-operator"));
             return acPromise.future();
         });
     }
 
-    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, AdminClient ac) {
+    public Future<Map<ConfigResource, Config>> getCurrentConfig(int podId, Admin ac) {
         Promise<Map<ConfigResource, Config>> futRes = Promise.promise();
         ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(podId));
         DescribeConfigsResult configs = ac.describeConfigs(Collections.singletonList(resource));
