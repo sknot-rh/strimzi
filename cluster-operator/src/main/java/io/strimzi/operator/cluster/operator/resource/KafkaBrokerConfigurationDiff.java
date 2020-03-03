@@ -73,10 +73,11 @@ public class KafkaBrokerConfigurationDiff {
         this.deletedEntries = new ArrayList<String>();
         Config brokerConfigs = this.current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)));
         if (brokerConfigs == null) {
-            throw new RuntimeException("Failed to get broker " + brokerId + " configuration");
+            log.warn("Failed to get broker {} configuration", brokerId);
+        } else {
+            this.currentEntries = brokerConfigs.entries();
+            this.diff = computeDiff();
         }
-        this.currentEntries = brokerConfigs.entries();
-        this.diff = computeDiff();
     }
 
     private KafkaConfiguration emptyKafkaConf() {
