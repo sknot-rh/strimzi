@@ -134,8 +134,8 @@ public class KafkaBrokerConfigurationDiffTest {
         ArrayList<ConfigEntry> ces = new ArrayList<>();
         ces.add(new ConfigEntry("advertised.listeners", "karel", false, true, false));
         KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(new ArrayList<>()), getTestingDesiredConfiguration(ces), kafkaVersion, brokerId);
-        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
-        assertThat(kcd.cannotBeUpdatedDynamically(), is(true));
+        assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(0));
+        assertThat(kcd.cannotBeUpdatedDynamically(), is(false));
     }
 
     @Test
@@ -228,7 +228,7 @@ public class KafkaBrokerConfigurationDiffTest {
         ces.add(new ConfigEntry("listener.security.protocol.map", "REPLICATION-9091:SSL,PLAIN-9092:SASL_PLAINTEXT,TLS-9093:SSL", false, true, false));
         KafkaBrokerConfigurationDiff kcd = new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(ces), getTestingDesiredConfiguration(ces2), kafkaVersion, brokerId);
         assertThat(kcd.getDiff().asOrderedProperties().asMap().size(), is(1));
-        assertThat(kcd.cannotBeUpdatedDynamically(), is(true));
+        assertThat(kcd.cannotBeUpdatedDynamically(), is(false));
     }
 
 }

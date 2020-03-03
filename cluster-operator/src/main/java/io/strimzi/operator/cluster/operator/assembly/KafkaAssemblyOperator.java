@@ -1640,6 +1640,9 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             KafkaBrokerConfigurationHelper kbch = new KafkaBrokerConfigurationHelper(kafkaSetOperations.getAdminClientProvider(), secretOperations);
             return kafkaSetOperations.getAsync(namespace, KafkaCluster.kafkaClusterName(name))
                 .compose(sts -> {
+                    if (sts == null) {
+                        return Future.succeededFuture();
+                    }
                     int replicas = kafkaCluster.getReplicas();
                     List<Future> configFutures = new ArrayList<>(replicas);
 
@@ -1660,7 +1663,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                                                     kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.cannotBeUpdatedDynamically());
                                                     ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
                                                 } else {
-                                                    kafkaPodsUpdatedDynamically.put(finalPodId, true);
+                                                    kafkaPodsUpdatedDynamically.put(finalPodId, false);
                                                 }
                                                 ac.close();
                                                 return Future.succeededFuture();
