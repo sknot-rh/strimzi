@@ -2479,10 +2479,10 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         Future<ReconciliationState> kafkaStatefulSet() {
             return withKafkaDiff(
                     kafkaSetOperations.getAsync(namespace, kafkaCluster.getName()).compose(sts -> {
-                        if (sts != null) {
+                        if (sts != null && !this.kafkaLoggingHash.isEmpty()) {
                             this.kafkaLoggingChanged =
-                                    !sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_LOGGING_HASH)
-                                            .equals(this.kafkaLoggingHash);
+                                    !this.kafkaLoggingHash.equals(
+                                            sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_LOGGING_HASH));
                         }
                         return Future.succeededFuture();
                     })
