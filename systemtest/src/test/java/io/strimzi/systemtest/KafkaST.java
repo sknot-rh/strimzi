@@ -20,6 +20,7 @@ import io.strimzi.api.kafka.model.EntityOperatorSpec;
 import io.strimzi.api.kafka.model.EntityTopicOperatorSpec;
 import io.strimzi.api.kafka.model.EntityUserOperatorSpec;
 import io.strimzi.api.kafka.model.Kafka;
+import io.strimzi.api.kafka.model.InlineLogging;
 import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.api.kafka.model.KafkaResources;
 import io.strimzi.api.kafka.model.KafkaTopic;
@@ -73,6 +74,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -2130,6 +2132,7 @@ class KafkaST extends BaseST {
 
     @Test
     void testDynamicConfiguration() {
+        int kafkaReplicas = 2;
         Map<String, Object> kafkaConfig = new HashMap<>();
         kafkaConfig.put("offsets.topic.replication.factor", "1");
         kafkaConfig.put("transaction.state.log.replication.factor", "1");
@@ -2143,7 +2146,7 @@ class KafkaST extends BaseST {
         updatedKafkaConfig.put("log.message.format.version", "2.4");
         updatedKafkaConfig.put("unclean.leader.election.enable", "true");
 
-        KafkaResource.kafkaEphemeral(CLUSTER_NAME, 2, 1)
+        KafkaResource.kafkaEphemeral(CLUSTER_NAME, kafkaReplicas, 1)
                 .editSpec()
                     .editKafka()
                         .withConfig(kafkaConfig)
@@ -2156,10 +2159,10 @@ class KafkaST extends BaseST {
         assertThat(kafkaConfiguration, containsString("transaction.state.log.replication.factor=1"));
         assertThat(kafkaConfiguration, containsString("default.replication.factor=1"));
 
-        String previousPodGeneration = kubeClient().getPod(KafkaResources.kafkaPodName(CLUSTER_NAME, 0)).getMetadata().getAnnotations().get("strimzi.io/generation");
-
         String kafkaConfigurationFromPod = cmdKubeClient().execInPod(KafkaResources.kafkaPodName(CLUSTER_NAME, 0), "/bin/bash", "-c", "bin/kafka-configs.sh --bootstrap-server localhost:9092 --entity-type brokers --entity-name 0 --describe").out();
         assertThat(kafkaConfigurationFromPod, is("Configs for broker 0 are:\n"));
+
+        Map<String, String> kafkaPods = StatefulSetUtils.ssSnapshot(kafkaStatefulSetName(CLUSTER_NAME));
 
         LOGGER.info("Updating configuration of Kafka cluster");
         KafkaResource.replaceKafkaResource(CLUSTER_NAME, k -> {
@@ -2167,7 +2170,8 @@ class KafkaST extends BaseST {
             kafkaClusterSpec.setConfig(updatedKafkaConfig);
         });
 
-        KafkaUtils.waitUntilKafkaCRIsReady(CLUSTER_NAME);
+        StUtils.waitForReconciliation(testClass, testName, NAMESPACE);
+        assertThat(StatefulSetUtils.ssHasRolled(kafkaStatefulSetName(CLUSTER_NAME), kafkaPods), is(false));
 
         LOGGER.info("Verify values after update");
         kafkaConfiguration = kubeClient().getConfigMap(KafkaResources.kafkaMetricsAndLogConfigMapName(CLUSTER_NAME)).getData().get("server.config");
@@ -2175,15 +2179,8 @@ class KafkaST extends BaseST {
         assertThat(kafkaConfiguration, containsString("transaction.state.log.replication.factor=1"));
         assertThat(kafkaConfiguration, containsString("default.replication.factor=1"));
 
-        waitFor("kafka dynamic configuration reconciliation", 500, 10_000, () ->
-            kubeClient().getPodResource(KafkaResources.kafkaPodName(CLUSTER_NAME, 0)).inContainer("kafka").getLog().contains("Processing override for entityPath: brokers/0 with config: Map")
-        );
-
         kafkaConfigurationFromPod = cmdKubeClient().execInPod(KafkaResources.kafkaPodName(CLUSTER_NAME, 0), "/bin/bash", "-c", "bin/kafka-configs.sh --bootstrap-server localhost:9092 --entity-type brokers --entity-name 0 --describe").out();
         assertThat(kafkaConfigurationFromPod, containsString("unclean.leader.election.enable=true"));
-
-        String nextPodGeneration = kubeClient().getPod(KafkaResources.kafkaPodName(CLUSTER_NAME, 0)).getMetadata().getAnnotations().get("strimzi.io/generation");
-        assertThat(nextPodGeneration, is(previousPodGeneration));
 
     }
 
