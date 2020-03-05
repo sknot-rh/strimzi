@@ -399,7 +399,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         private String zkLoggingHash = "";
         private String kafkaLoggingHash = "";
-        private Boolean kafkaLoggingChanged = false;
+        private String oldKafkaLoggingHash = "";
         private String kafkaBrokerConfigurationHash = "";
 
         @SuppressWarnings("deprecation")
@@ -1657,13 +1657,20 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                                     return CompositeFuture.join(futCurrent, futDesired)
                                             .compose(res -> {
                                                 KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.result().resultAt(0), res.result().resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
-                                                log.debug("Diff dynamically changeable? {}", !configurationDiff.cannotBeUpdatedDynamically());
+                                                ConfigMap kafkaCm = res.result().resultAt(1);
+                                                boolean loggingChanged = !sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH).isEmpty()
+                                                        && !sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH).equals(getStringHash(kafkaCm.getData().get(AbstractModel.ANCILLARY_CM_KEY_LOG_CONFIG)));
 
-                                                if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
+                                                if (loggingChanged) {
+                                                    log.debug("logging changed, rolling");
+                                                    kafkaPodsUpdatedDynamically.put(finalPodId, !loggingChanged);
+                                                } else if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
+                                                    log.debug("logging not changed, kafka did dynamicaly:{}", !configurationDiff.cannotBeUpdatedDynamically());
                                                     kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.cannotBeUpdatedDynamically());
                                                     ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
                                                 } else {
-                                                    kafkaPodsUpdatedDynamically.put(finalPodId, false);
+                                                    log.debug("no kafka nor logging change");
+                                                    kafkaPodsUpdatedDynamically.put(finalPodId, null);
                                                 }
                                                 ac.close();
                                                 return Future.succeededFuture();
@@ -2461,6 +2468,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     String.valueOf(getCaCertGeneration(this.clientsCa)));
 
             Annotations.annotations(template).put(AbstractModel.ANNO_STRIMZI_LOGGING_HASH, kafkaLoggingHash);
+            Annotations.annotations(template).put(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH, oldKafkaLoggingHash);
             Annotations.annotations(template).put(KafkaCluster.ANNO_STRIMZI_BROKER_CONFIGURATION_HASH, kafkaBrokerConfigurationHash);
 
             // Annotations with custom cert thumbprints to help with rolling updates when they change
@@ -2481,16 +2489,13 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         Future<ReconciliationState> kafkaStatefulSet() {
             return withKafkaDiff(
-                    kafkaSetOperations.getAsync(namespace, kafkaCluster.getName()).compose(sts -> {
-                        if (sts != null && !this.kafkaLoggingHash.isEmpty()) {
-                            this.kafkaLoggingChanged =
-                                    !this.kafkaLoggingHash.equals(
-                                            sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_LOGGING_HASH));
+                    kafkaSetOperations.getAsync(namespace, kafkaCluster.getName())
+                    .compose(sts -> {
+                        if (sts != null) {
+                            this.oldKafkaLoggingHash = sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_LOGGING_HASH);
                         }
-                        return Future.succeededFuture();
-                    })
-                    .compose(i ->
-                    kafkaSetOperations.reconcile(namespace, kafkaCluster.getName(), getKafkaStatefulSet())));
+                        return kafkaSetOperations.reconcile(namespace, kafkaCluster.getName(), getKafkaStatefulSet());
+                    }));
         }
 
         Future<ReconciliationState> kafkaRollingUpdate() {
@@ -3141,6 +3146,22 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             boolean isPodUpToDate = isPodUpToDate(sts, pod);
             boolean isCustomCertTlsListenerUpToDate = isCustomCertUpToDate(sts, pod, KafkaCluster.ANNO_STRIMZI_CUSTOM_CERT_THUMBPRINT_TLS_LISTENER);
             boolean isCustomCertExternalListenerUpToDate = isCustomCertUpToDate(sts, pod, KafkaCluster.ANNO_STRIMZI_CUSTOM_CERT_THUMBPRINT_EXTERNAL_LISTENER);
+            boolean isPodCaCertUpToDate = true;
+            boolean isCaCertsChanged = false;
+            boolean isFsResizeNeeded = false;
+
+            for (Ca ca: cas) {
+                isCaCertsChanged |= ca.certRenewed() || ca.certsRemoved();
+                isPodCaCertUpToDate &= isPodCaCertUpToDate(pod, ca);
+            }
+
+            boolean isPodToRestart = !isPodUpToDate;
+
+            if (pod.getMetadata().getName().matches(".*-kafka-[0-9]+")) {
+                if (podUpdatedDynamically != null) {
+                    isPodToRestart = !podUpdatedDynamically;
+                }
+            }
 
             List<String> reasons = new ArrayList<>();
             for (Ca ca: cas) {
