@@ -3155,14 +3155,6 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 isPodCaCertUpToDate &= isPodCaCertUpToDate(pod, ca);
             }
 
-            boolean isPodToRestart = !isPodUpToDate;
-
-            if (pod.getMetadata().getName().matches(".*-kafka-[0-9]+")) {
-                if (podUpdatedDynamically != null) {
-                    isPodToRestart = !podUpdatedDynamically;
-                }
-            }
-
             List<String> reasons = new ArrayList<>();
             for (Ca ca: cas) {
                 if (ca.certRenewed()) {
@@ -3175,7 +3167,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     reasons.add("Pod has old " + ca + " certificate generation");
                 }
             }
-            if (!isPodUpToDate || !podUpdatedDynamically) {
+            if (!isPodUpToDate && (podUpdatedDynamically != null && !podUpdatedDynamically)) {
                 reasons.add("Pod has old generation");
             }
             if (fsResizingRestartRequest.contains(pod.getMetadata().getName()))   {
