@@ -2171,7 +2171,7 @@ class KafkaST extends BaseST {
             kafkaClusterSpec.setConfig(updatedKafkaConfig);
         });
 
-        StUtils.waitForReconciliation(testClass, testName, NAMESPACE);
+        PodUtils.waitUntilPodsStability(kubeClient().listPodsByPrefixInName(KafkaResources.kafkaStatefulSetName(CLUSTER_NAME)));
         assertThat(StatefulSetUtils.ssHasRolled(kafkaStatefulSetName(CLUSTER_NAME), kafkaPods), is(false));
 
         LOGGER.info("Verify values after update");

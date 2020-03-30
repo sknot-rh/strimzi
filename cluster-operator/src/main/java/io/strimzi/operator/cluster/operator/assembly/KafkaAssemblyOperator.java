@@ -1390,7 +1390,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             // Scale-down and Scale-up might have change the STS. we should get a fresh one.
             return zkSetOperations.getAsync(namespace, ZookeeperCluster.zookeeperClusterName(name))
                     .compose(sts -> zkSetOperations.maybeRollingUpdate(sts,
-                        pod -> getReasonsToRestartPod(zkDiffs.resource(), pod, existingZookeeperCertsChanged, this.clusterCa)))
+                        pod -> getReasonsToRestartPod(zkDiffs.resource(), pod, existingZookeeperCertsChanged, false, this.clusterCa)))
                     .map(this);
         }
 
