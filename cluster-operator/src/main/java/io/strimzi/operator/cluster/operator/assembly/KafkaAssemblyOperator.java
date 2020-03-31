@@ -4,7 +4,6 @@
  */
 package io.strimzi.operator.cluster.operator.assembly;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.LoadBalancerIngress;
@@ -28,7 +27,6 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.openshift.api.model.Route;
 import io.fabric8.openshift.api.model.RouteIngress;
-import io.fabric8.zjsonpatch.JsonDiff;
 import io.strimzi.api.kafka.KafkaList;
 import io.strimzi.api.kafka.model.CertAndKeySecretSource;
 import io.strimzi.api.kafka.model.CertificateAuthority;
@@ -132,7 +130,6 @@ import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static io.fabric8.kubernetes.client.internal.PatchUtils.patchMapper;
 import static io.strimzi.operator.cluster.model.AbstractModel.ANNO_STRIMZI_IO_STORAGE;
 import static io.strimzi.operator.cluster.model.KafkaCluster.ANNO_STRIMZI_IO_FROM_VERSION;
 import static io.strimzi.operator.cluster.model.KafkaCluster.ANNO_STRIMZI_IO_KAFKA_VERSION;
@@ -1658,14 +1655,15 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                                             .compose(res -> {
                                                 KafkaBrokerConfigurationDiff configurationDiff = new KafkaBrokerConfigurationDiff(res.result().resultAt(0), res.result().resultAt(1), kafkaCluster.getKafkaVersion(), finalPodId);
                                                 ConfigMap kafkaCm = res.result().resultAt(1);
-                                                boolean loggingChanged = !sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH).isEmpty()
-                                                        && !sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH).equals(getStringHash(kafkaCm.getData().get(AbstractModel.ANCILLARY_CM_KEY_LOG_CONFIG)));
+                                                String oldLoggingHash = sts.getSpec().getTemplate().getMetadata().getAnnotations().get(AbstractModel.ANNO_STRIMZI_OLD_LOGGING_HASH);
+                                                String currentLoggingHash = getStringHash(kafkaCm.getData().get(AbstractModel.ANCILLARY_CM_KEY_LOG_CONFIG));
+                                                boolean loggingChanged = !oldLoggingHash.isEmpty() && !oldLoggingHash.equals(currentLoggingHash);
 
                                                 if (loggingChanged) {
                                                     log.debug("logging changed, rolling");
                                                     kafkaPodsUpdatedDynamically.put(finalPodId, !loggingChanged);
                                                 } else if (configurationDiff.getDiff().asOrderedProperties().asMap().size() > 0) {
-                                                    log.debug("logging not changed, kafka did dynamicaly:{}", !configurationDiff.cannotBeUpdatedDynamically());
+                                                    log.debug("logging not changed, kafka did dynamically:{}", !configurationDiff.cannotBeUpdatedDynamically());
                                                     kafkaPodsUpdatedDynamically.put(finalPodId, !configurationDiff.cannotBeUpdatedDynamically());
                                                     ac.incrementalAlterConfigs(configurationDiff.getUpdatedConfig(), new AlterConfigsOptions());
                                                 } else {
@@ -3523,24 +3521,4 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         }
     }
 
-    /**
-     * @param current Current ConfigMap
-     * @param desired Desired ConfigMap
-     * @return Returns true if only kafka config has been changed
-     */
-    public boolean kafkaLoggingChanged(ConfigMap current, ConfigMap desired) {
-        if ((current == null && desired != null) || (current != null && desired == null)) {
-            return false;
-        }
-        JsonNode diff = JsonDiff.asJson(patchMapper().valueToTree(current), patchMapper().valueToTree(desired));
-        boolean kafkaLoggingChanged = false;
-
-        for (JsonNode d : diff) {
-
-            if (d.get("path").asText().equals("/data/log4j.properties") && d.get("op").asText().equals("replace")) {
-                kafkaLoggingChanged = true;
-            }
-        }
-        return kafkaLoggingChanged;
-    }
 }

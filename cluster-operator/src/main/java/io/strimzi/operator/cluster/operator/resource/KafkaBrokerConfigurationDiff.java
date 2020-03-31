@@ -32,10 +32,10 @@ import static io.fabric8.kubernetes.client.internal.PatchUtils.patchMapper;
  * An algorithm:
  *  1. Create map from supplied desired ConfigMap
  *  2. Fill placeholders (e.g. ${BROKER_ID}) in desired map
- *  3. Put all entries from desired to the diff
- *  4a. If the entry is in IGNORABLE_PROPERTIES or entry.value from desired is equal to entry.value from current, remove entry from diff
- *  4b. If entry was removed from desired, add it to the diff with default value.
- *      If custom entry was removed, add it to the diff with 'null' value.
+ *  3a. If the entry is in IGNORABLE_PROPERTIES or entry.value from desired is equal to entry.value from current, do nothing
+ *      else add it to the diff
+ *  3b. If entry was removed from desired, add it to the diff with default value.
+ *  3c. If custom entry was removed, delete property
  *
  */
 public class KafkaBrokerConfigurationDiff {
@@ -47,7 +47,6 @@ public class KafkaBrokerConfigurationDiff {
     private KafkaConfiguration diff;
     private KafkaVersion kafkaVersion;
     private int brokerId;
-    private ArrayList<String> deletedEntries;
     Map<ConfigResource, Collection<AlterConfigOp>> updated = new HashMap<>();
 
     public static final Pattern IGNORABLE_PROPERTIES = Pattern.compile(
@@ -73,7 +72,6 @@ public class KafkaBrokerConfigurationDiff {
         this.desired = desired;
         this.kafkaVersion = kafkaVersion;
         this.brokerId = brokerId;
-        this.deletedEntries = new ArrayList<String>();
         Config brokerConfigs = this.current.get(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)));
         if (brokerConfigs == null) {
             log.warn("Failed to get broker {} configuration", brokerId);

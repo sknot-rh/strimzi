@@ -231,12 +231,4 @@ public class KafkaBrokerConfigurationDiffTest {
         assertThat(kcd.cannotBeUpdatedDynamically(), is(false));
     }
 
-    @Test
-    public void lalatest() {
-        ArrayList<ConfigEntry> ces = new ArrayList<>();
-        ces.add(new ConfigEntry("log.cleaner.min.compaction.lag.msaaaaa", "0", false, true, false));
-
-        new KafkaBrokerConfigurationDiff(getTestingCurrentConfiguration(ces), getTestingDesiredConfiguration(new ArrayList()), kafkaVersion, brokerId);
-    }
-
 }

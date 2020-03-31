@@ -436,27 +436,49 @@ public class ModelUtils {
         return String.join(" ", javaSystemPropertiesList);
     }
 
+    /**
+     * This method transforms ConfigMap data entry form String into the List of Strings, where entry = line from input.
+     * The comments are ignored.
+     * @param config ConfigMap data as a String
+     * @return List of String key=value
+     */
     public static List<String> getLinesWithoutCommentsAndEmptyLines(String config) {
-        List<String> allLines = Arrays.asList(config.split("\\r?\\n"));
         List<String> validLines = new ArrayList<>();
+        if (config != null) {
+            List<String> allLines = Arrays.asList(config.split("\\r?\\n"));
 
-        for (String line : allLines)    {
-            if (!line.startsWith("#") && !line.isEmpty())   {
-                validLines.add(line);
+            for (String line : allLines) {
+                if (!line.startsWith("#") && !line.isEmpty()) {
+                    validLines.add(line);
+                }
             }
         }
 
         return validLines;
     }
 
+    /**
+     * Gets data from ConfigMap as a String
+     * @param configMap ConfigMap to get data from
+     * @param key key to get data from ConfigMap
+     * @return String value of ConfigMap data entry. If the key does not exist in the ConfigMap, return null
+     */
+    public static String getDataFromConfigMap(ConfigMap configMap, String key) {
+        if (configMap == null || configMap.getData() == null || configMap.getData().get(key) == null) {
+            return null;
+        }
+        return configMap.getData().get(key);
+    }
+
+    /**
+     * Transforms data from ConfigMap into Map
+     * @param configMap ConfigMap to get data from
+     * @param key key to get data from ConfigMap
+     * @return Map of (key, value)
+     */
     public static Map<String, String> configMap2Map(ConfigMap configMap, String key) {
         Map<String, String> result = new HashMap<>();
-        if (configMap == null || configMap.getData() == null || configMap.getData().get(key) == null) {
-            return result;
-        }
-        String desireConf = configMap.getData().get(key);
-
-        List<String> list = ModelUtils.getLinesWithoutCommentsAndEmptyLines(desireConf);
+        List<String> list = ModelUtils.getLinesWithoutCommentsAndEmptyLines(getDataFromConfigMap(configMap, key));
         for (String line: list) {
             String[] split = line.split("=");
             if (split.length == 1) {
