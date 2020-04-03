@@ -191,7 +191,7 @@ public class KafkaBrokerConfigurationDiff {
         }
 
         difference.entrySet().forEach(e -> {
-            log.info("{} differs: {} -> {}", e.getKey(), currentMap.get(e.getKey()), e.getValue());
+            log.info("{} differs: '{}' -> '{}'", e.getKey(), currentMap.get(e.getKey()), e.getValue());
         });
 
         updated.put(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)), updatedCE);
