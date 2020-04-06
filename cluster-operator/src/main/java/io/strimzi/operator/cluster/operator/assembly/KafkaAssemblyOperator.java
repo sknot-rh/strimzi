@@ -1679,7 +1679,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                                                     for (Map.Entry entry: alterConfigResult.values().entrySet()) {
                                                         KafkaFuture kafkaFuture = (KafkaFuture) entry.getValue();
                                                         try {
-                                                            log.debug("AlterConfig result {}", kafkaFuture.get(operationTimeoutMs, TimeUnit.SECONDS));
+                                                            log.debug("AlterConfig result {}", kafkaFuture.get(operationTimeoutMs, TimeUnit.MILLISECONDS));
                                                         } catch (InvalidRequestException | InterruptedException | ExecutionException | TimeoutException e) {
                                                             log.warn("Error during dynamic reconfiguration {}. Rolling the pod.", e.getMessage());
                                                             kafkaPodsUpdatedDynamically.put(finalPodId, false);

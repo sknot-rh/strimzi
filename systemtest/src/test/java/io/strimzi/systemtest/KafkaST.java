@@ -76,6 +76,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -86,8 +87,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -2332,6 +2335,70 @@ class KafkaST extends BaseST {
 
         kafkaConfigurationFromPod = cmdKubeClient().execInPod(KafkaResources.kafkaPodName(CLUSTER_NAME, 0), "/bin/bash", "-c", "bin/kafka-configs.sh --bootstrap-server localhost:9092 --entity-type brokers --entity-name 0 --describe").out();
         assertThat(kafkaConfigurationFromPod, containsString("unclean.leader.election.enable=true"));
+    }
+
+    @Test
+    @Tag(EXTERNAL_CLIENTS_USED)
+    void testDynamicConfigurationExternalTls() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+        int kafkaReplicas = 2;
+        Map<String, Object> kafkaConfig = new HashMap<>();
+        kafkaConfig.put("offsets.topic.replication.factor", "1");
+        kafkaConfig.put("transaction.state.log.replication.factor", "1");
+        kafkaConfig.put("default.replication.factor", "1");
+        kafkaConfig.put("log.message.format.version", "2.4");
+
+        KafkaListeners kl = new KafkaListenersBuilder()
+                .withNewKafkaListenerExternalLoadBalancer()
+                .endKafkaListenerExternalLoadBalancer()
+                .withNewPlain()
+                .endPlain()
+                .build();
+
+        KafkaResource.kafkaEphemeral(CLUSTER_NAME, kafkaReplicas, 1)
+                .editSpec()
+                    .editKafka()
+                        .withListeners(kl)
+                        .withConfig(kafkaConfig)
+                    .endKafka()
+                .endSpec()
+                .done();
+
+        KafkaTopicResource.topic(CLUSTER_NAME, TOPIC_NAME).done();
+
+        String userName = "alice";
+        KafkaUserResource.tlsUser(CLUSTER_NAME, userName).done();
+        waitFor("Wait for secrets became available", Constants.GLOBAL_POLL_INTERVAL, Constants.TIMEOUT_FOR_GET_SECRETS,
+                () -> kubeClient().getSecret("alice") != null,
+                () -> LOGGER.error("Couldn't find user secret {}", kubeClient().listSecrets()));
+
+        Future<Integer> producer = externalBasicKafkaClient.sendMessagesTls(TOPIC_NAME, NAMESPACE, CLUSTER_NAME, userName, MESSAGE_COUNT, "SSL");
+        Future<Integer> consumer = externalBasicKafkaClient.receiveMessagesTls(TOPIC_NAME, NAMESPACE, CLUSTER_NAME, userName, MESSAGE_COUNT, "SSL");
+
+        assertThat(producer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+        assertThat(consumer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+
+        LOGGER.info("Updating listeners of Kafka cluster");
+        KafkaResource.replaceKafkaResource(CLUSTER_NAME, k -> {
+            KafkaListeners updatedKl = new KafkaListenersBuilder()
+                    .withNewKafkaListenerExternalLoadBalancer()
+                        .withNewKafkaListenerAuthenticationTlsAuth()
+                        .endKafkaListenerAuthenticationTlsAuth()
+                    .endKafkaListenerExternalLoadBalancer()
+                    .withNewPlain()
+                    .endPlain()
+                    .build();
+            KafkaClusterSpec kafkaClusterSpec = k.getSpec().getKafka();
+            kafkaClusterSpec.setListeners(updatedKl);
+        });
+
+        PodUtils.waitUntilPodsStability(kubeClient().listPodsByPrefixInName(KafkaResources.kafkaStatefulSetName(CLUSTER_NAME)));
+
+        Future<Integer> producerAfter = externalBasicKafkaClient.sendMessagesTls(TOPIC_NAME, NAMESPACE, CLUSTER_NAME, userName, MESSAGE_COUNT, "SSL");
+        Future<Integer> consumerAfter = externalBasicKafkaClient.receiveMessagesTls(TOPIC_NAME, NAMESPACE, CLUSTER_NAME, userName, MESSAGE_COUNT, "SSL");
+
+        assertThat(producerAfter.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+        assertThat(consumerAfter.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+
     }
 
     protected void checkKafkaConfiguration(String podNamePrefix, Map<String, Object> config, String clusterName) {
