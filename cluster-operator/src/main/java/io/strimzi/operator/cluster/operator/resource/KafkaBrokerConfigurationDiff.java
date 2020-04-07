@@ -155,7 +155,7 @@ public class KafkaBrokerConfigurationDiff {
                 if (d.get("op").asText().equals("remove")) {
                     if (!entry.get().source().name().equals("DEFAULT_CONFIG")) {
                         // we are deleting custom option
-                        difference.put(pathValue, entry.get().value());
+                        difference.put(pathValue, "deleted entry");
                         updatedCE.add(new AlterConfigOp(new ConfigEntry(pathValue, entry.get().value()), AlterConfigOp.OpType.DELETE));
                     } else if (entry.get().isDefault()) {
                         // entry is in current, is not in desired, is default -> it uses default value, skip
@@ -191,7 +191,7 @@ public class KafkaBrokerConfigurationDiff {
         }
 
         difference.entrySet().forEach(e -> {
-            log.info("{} differs: '{}' -> '{}'", e.getKey(), currentMap.get(e.getKey()), e.getValue());
+            log.info("{} broker conf differs: '{}' -> '{}'", e.getKey(), currentMap.get(e.getKey()), e.getValue());
         });
 
         updated.put(new ConfigResource(ConfigResource.Type.BROKER, Integer.toString(brokerId)), updatedCE);
