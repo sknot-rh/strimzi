@@ -2340,7 +2340,7 @@ class KafkaST extends BaseST {
 
     @Test
     @Tag(EXTERNAL_CLIENTS_USED)
-    void testDynamicConfigurationExternalTls() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    void testDynamicConfigurationExternalTls() throws InterruptedException, ExecutionException, TimeoutException {
         int kafkaReplicas = 2;
         Map<String, Object> kafkaConfig = new HashMap<>();
         kafkaConfig.put("offsets.topic.replication.factor", "1");
@@ -2383,34 +2383,27 @@ class KafkaST extends BaseST {
 
         KafkaTopicResource.topic(CLUSTER_NAME, TOPIC_NAME).done();
 
-        String userName = "alice";
-        KafkaUserResource.tlsUser(CLUSTER_NAME, userName).done();
-        waitFor("Wait for secrets became available", Constants.GLOBAL_POLL_INTERVAL, Constants.TIMEOUT_FOR_GET_SECRETS,
-            () -> kubeClient().getSecret(userName) != null,
-            () -> LOGGER.error("Couldn't find user secret {}", kubeClient().listSecrets()));
+        KafkaUserResource.tlsUser(CLUSTER_NAME, USER_NAME).done();
 
-        String userName2 = "john";
-        KafkaUserResource.tlsUser(CLUSTER_NAME, userName2).done();
-        waitFor("Wait for secrets became available", Constants.GLOBAL_POLL_INTERVAL, Constants.TIMEOUT_FOR_GET_SECRETS,
-                () -> kubeClient().getSecret(userName2) != null,
-                () -> LOGGER.error("Couldn't find user secret {}", kubeClient().listSecrets()));
+        String userName = "john";
+        KafkaUserResource.tlsUser(CLUSTER_NAME, userName).done();
 
         basicExternalKafkaClientTls.setKafkaUsername(userName);
-        basicExternalKafkaClient.setKafkaUsername(userName2);
+        basicExternalKafkaClient.setKafkaUsername(userName);
 
         assertThrows(ExecutionException.class, () -> {
-            Future<Integer> failproducer = basicExternalKafkaClient.sendMessagesPlain(5000);
-            Future<Integer> failconsumer = basicExternalKafkaClient.receiveMessagesPlain(5000);
+            Future<Integer> failproducer = basicExternalKafkaClient.sendMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failconsumer = basicExternalKafkaClient.receiveMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
 
-            assertThat(failproducer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-            assertThat(failconsumer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+            assertThat(failproducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+            assertThat(failconsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
         });
 
         Future<Integer> producer = basicExternalKafkaClientTls.sendMessagesTls();
         Future<Integer> consumer = basicExternalKafkaClientTls.receiveMessagesTls();
 
-        assertThat(producer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-        assertThat(consumer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+        assertThat(producer.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+        assertThat(consumer.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
 
         LOGGER.info("Updating listeners of Kafka cluster");
         KafkaResource.replaceKafkaResource(CLUSTER_NAME, k -> {
@@ -2431,15 +2424,15 @@ class KafkaST extends BaseST {
         Future<Integer> producerAfter = basicExternalKafkaClientTls.sendMessagesTls();
         Future<Integer> consumerAfter = basicExternalKafkaClientTls.receiveMessagesTls();
 
-        assertThat(producerAfter.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-        assertThat(consumerAfter.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+        assertThat(producerAfter.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+        assertThat(consumerAfter.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
 
         assertThrows(ExecutionException.class, () -> {
-            Future<Integer> failproducerTls = basicExternalKafkaClient.sendMessagesPlain(5000);
-            Future<Integer> failconsumerTls = basicExternalKafkaClient.receiveMessagesPlain(5000);
+            Future<Integer> failproducerTls = basicExternalKafkaClient.sendMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failconsumerTls = basicExternalKafkaClient.receiveMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
 
-            assertThat(failproducerTls.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-            assertThat(failconsumerTls.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+            assertThat(failproducerTls.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+            assertThat(failconsumerTls.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
         });
 
         Map<String, String> kafkaPods = StatefulSetUtils.ssSnapshot(kafkaStatefulSetName(CLUSTER_NAME));
@@ -2461,18 +2454,18 @@ class KafkaST extends BaseST {
         PodUtils.waitUntilPodsStability(kubeClient().listPodsByPrefixInName(KafkaResources.kafkaStatefulSetName(CLUSTER_NAME)));
 
         assertThrows(ExecutionException.class, () -> {
-            Future<Integer> failProducer = basicExternalKafkaClientTls.sendMessagesTls(5000);
-            Future<Integer> failConsumer = basicExternalKafkaClientTls.receiveMessagesTls(5000);
+            Future<Integer> failProducer = basicExternalKafkaClientTls.sendMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failConsumer = basicExternalKafkaClientTls.receiveMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
 
-            assertThat(failProducer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-            assertThat(failConsumer.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+            assertThat(failProducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+            assertThat(failConsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
         });
 
         Future<Integer> producerAfterTlsOff = basicExternalKafkaClient.sendMessagesTls();
         Future<Integer> consumerAfterTlsOff = basicExternalKafkaClient.receiveMessagesTls();
 
-        assertThat(producerAfterTlsOff.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
-        assertThat(consumerAfterTlsOff.get(2, TimeUnit.MINUTES), is(MESSAGE_COUNT));
+        assertThat(producerAfterTlsOff.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+        assertThat(consumerAfterTlsOff.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
     }
 
     protected void checkKafkaConfiguration(String podNamePrefix, Map<String, Object> config, String clusterName) {
