@@ -76,7 +76,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -2339,6 +2338,8 @@ class KafkaST extends BaseST {
     }
 
     @Test
+    @Tag(NODEPORT_SUPPORTED)
+    @Tag(LOADBALANCER_SUPPORTED)
     @Tag(EXTERNAL_CLIENTS_USED)
     void testDynamicConfigurationExternalTls() throws InterruptedException, ExecutionException, TimeoutException {
         int kafkaReplicas = 2;
@@ -2348,33 +2349,13 @@ class KafkaST extends BaseST {
         kafkaConfig.put("default.replication.factor", "1");
         kafkaConfig.put("log.message.format.version", "2.4");
 
-        BasicExternalKafkaClient basicExternalKafkaClientTls = new BasicExternalKafkaClient.Builder()
-                .withTopicName(TOPIC_NAME)
-                .withNamespaceName(NAMESPACE)
-                .withClusterName(CLUSTER_NAME)
-                .withMessageCount(MESSAGE_COUNT)
-                .withConsumerGroupName(CONSUMER_GROUP_NAME + "-" + rng.nextInt(Integer.MAX_VALUE))
-                .withSecurityProtocol(SecurityProtocol.SSL)
-                .build();
-
-        BasicExternalKafkaClient basicExternalKafkaClient = new BasicExternalKafkaClient.Builder()
-                .withTopicName(TOPIC_NAME)
-                .withNamespaceName(NAMESPACE)
-                .withClusterName(CLUSTER_NAME)
-                .withMessageCount(MESSAGE_COUNT)
-                .withConsumerGroupName(CONSUMER_GROUP_NAME + "-" + rng.nextInt(Integer.MAX_VALUE))
-                .withSecurityProtocol(SecurityProtocol.PLAINTEXT)
-                .build();
-
         KafkaResource.kafkaEphemeral(CLUSTER_NAME, kafkaReplicas, 1)
                 .editSpec()
                     .editKafka()
                         .withNewListeners()
-                            .withNewKafkaListenerExternalNodePort()
-                                //.withTls(false)
-                            .endKafkaListenerExternalNodePort()
-                            .withNewPlain()
-                            .endPlain()
+                            .withNewKafkaListenerExternalLoadBalancer()
+                                .withTls(false)
+                            .endKafkaListenerExternalLoadBalancer()
                         .endListeners()
                         .withConfig(kafkaConfig)
                     .endKafka()
@@ -2382,28 +2363,47 @@ class KafkaST extends BaseST {
                 .done();
 
         KafkaTopicResource.topic(CLUSTER_NAME, TOPIC_NAME).done();
-
         KafkaUserResource.tlsUser(CLUSTER_NAME, USER_NAME).done();
+
+        BasicExternalKafkaClient basicExternalKafkaClientTls = new BasicExternalKafkaClient.Builder()
+            .withTopicName(TOPIC_NAME)
+            .withNamespaceName(NAMESPACE)
+            .withClusterName(CLUSTER_NAME)
+            .withMessageCount(MESSAGE_COUNT)
+            .withKafkaUsername(USER_NAME)
+            .withConsumerGroupName(CONSUMER_GROUP_NAME + "-" + rng.nextInt(Integer.MAX_VALUE))
+            .withSecurityProtocol(SecurityProtocol.SSL)
+            .build();
+
+        BasicExternalKafkaClient basicExternalKafkaClientPlain = new BasicExternalKafkaClient.Builder()
+            .withTopicName(TOPIC_NAME)
+            .withNamespaceName(NAMESPACE)
+            .withClusterName(CLUSTER_NAME)
+            .withMessageCount(MESSAGE_COUNT)
+            .withConsumerGroupName(CONSUMER_GROUP_NAME + "-" + rng.nextInt(Integer.MAX_VALUE))
+            .withSecurityProtocol(SecurityProtocol.PLAINTEXT)
+            .build();
 
         String userName = "john";
         KafkaUserResource.tlsUser(CLUSTER_NAME, userName).done();
 
         basicExternalKafkaClientTls.setKafkaUsername(userName);
-        basicExternalKafkaClient.setKafkaUsername(userName);
 
-        assertThrows(ExecutionException.class, () -> {
-            Future<Integer> failproducer = basicExternalKafkaClient.sendMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
-            Future<Integer> failconsumer = basicExternalKafkaClient.receiveMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
-
-            assertThat(failproducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
-            assertThat(failconsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
-        });
-
-        Future<Integer> producer = basicExternalKafkaClientTls.sendMessagesTls();
-        Future<Integer> consumer = basicExternalKafkaClientTls.receiveMessagesTls();
+        Future<Integer> producer = basicExternalKafkaClientPlain.sendMessagesPlain();
+        Future<Integer> consumer = basicExternalKafkaClientPlain.receiveMessagesPlain();
 
         assertThat(producer.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
         assertThat(consumer.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+
+        assertThrows(ExecutionException.class, () -> {
+            Future<Integer> failProducer = basicExternalKafkaClientTls.sendMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failConsumer = basicExternalKafkaClientTls.receiveMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+
+            failProducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+            failConsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+
+            LOGGER.error("Producer & Consumer did not send and receive messages because external listener is set to plain communication");
+        });
 
         LOGGER.info("Updating listeners of Kafka cluster");
         KafkaResource.replaceKafkaResource(CLUSTER_NAME, k -> {
@@ -2412,8 +2412,6 @@ class KafkaST extends BaseST {
                         .withNewKafkaListenerAuthenticationTlsAuth()
                         .endKafkaListenerAuthenticationTlsAuth()
                     .endKafkaListenerExternalNodePort()
-                    .withNewPlain()
-                    .endPlain()
                     .build();
             KafkaClusterSpec kafkaClusterSpec = k.getSpec().getKafka();
             kafkaClusterSpec.setListeners(updatedKl);
@@ -2428,11 +2426,13 @@ class KafkaST extends BaseST {
         assertThat(consumerAfter.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
 
         assertThrows(ExecutionException.class, () -> {
-            Future<Integer> failproducerTls = basicExternalKafkaClient.sendMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
-            Future<Integer> failconsumerTls = basicExternalKafkaClient.receiveMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failProducerPlain = basicExternalKafkaClientPlain.sendMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
+            Future<Integer> failConsumerPlain = basicExternalKafkaClientPlain.receiveMessagesPlain(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
 
-            assertThat(failproducerTls.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
-            assertThat(failconsumerTls.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+            failProducerPlain.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+            failConsumerPlain.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+
+            LOGGER.error("Producer & Consumer did not send and receive messages because external listener is set to tls communication");
         });
 
         Map<String, String> kafkaPods = StatefulSetUtils.ssSnapshot(kafkaStatefulSetName(CLUSTER_NAME));
@@ -2442,8 +2442,6 @@ class KafkaST extends BaseST {
                     .withNewKafkaListenerExternalNodePort()
                         .withTls(false)
                     .endKafkaListenerExternalNodePort()
-                    .withNewPlain()
-                    .endPlain()
                     .build();
             KafkaClusterSpec kafkaClusterSpec = k.getSpec().getKafka();
             kafkaClusterSpec.setListeners(updatedKl);
@@ -2451,18 +2449,18 @@ class KafkaST extends BaseST {
 
         StatefulSetUtils.waitTillSsHasRolled(kafkaStatefulSetName(CLUSTER_NAME), kafkaReplicas, kafkaPods);
 
-        PodUtils.waitUntilPodsStability(kubeClient().listPodsByPrefixInName(KafkaResources.kafkaStatefulSetName(CLUSTER_NAME)));
-
         assertThrows(ExecutionException.class, () -> {
             Future<Integer> failProducer = basicExternalKafkaClientTls.sendMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
             Future<Integer> failConsumer = basicExternalKafkaClientTls.receiveMessagesTls(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT);
 
-            assertThat(failProducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
-            assertThat(failConsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
+            failProducer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+            failConsumer.get(Constants.GLOBAL_CLIENTS_EXCEPT_ERROR_TIMEOUT, TimeUnit.MILLISECONDS);
+
+            LOGGER.error("Producer & Consumer did not send and receive messages because external listener is set to plain communication");
         });
 
-        Future<Integer> producerAfterTlsOff = basicExternalKafkaClient.sendMessagesTls();
-        Future<Integer> consumerAfterTlsOff = basicExternalKafkaClient.receiveMessagesTls();
+        Future<Integer> producerAfterTlsOff = basicExternalKafkaClientPlain.sendMessagesPlain();
+        Future<Integer> consumerAfterTlsOff = basicExternalKafkaClientPlain.receiveMessagesPlain();
 
         assertThat(producerAfterTlsOff.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
         assertThat(consumerAfterTlsOff.get(Constants.GLOBAL_CLIENTS_TIMEOUT, TimeUnit.MILLISECONDS), is(MESSAGE_COUNT));
