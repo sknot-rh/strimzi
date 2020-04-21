@@ -45,7 +45,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -489,7 +488,6 @@ class LogSettingST extends BaseST {
         String eoName = KafkaResources.entityOperatorDeploymentName(CLUSTER_NAME);
         Map<String, String> eoPods = DeploymentUtils.depSnapshot(eoName);
 
-
         // change inline logging
         InlineLogging il = new InlineLogging();
         il.setLoggers(Collections.singletonMap("rootLogger.level", INFO));
@@ -502,9 +500,9 @@ class LogSettingST extends BaseST {
         String eoPodHash = eoPods.get(eoPodName);
         String finalEoPodName = eoPodName;
         TestUtils.waitFor("Logger change", Constants.GLOBAL_POLL_INTERVAL, Constants.GLOBAL_TIMEOUT, () -> {
-                    return cmdKubeClient().execInPodContainer(finalEoPodName, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level=INFO")
-                    && cmdKubeClient().execInPodContainer(finalEoPodName, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level=INFO");
-                }
+                return cmdKubeClient().execInPodContainer(finalEoPodName, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level=INFO")
+                && cmdKubeClient().execInPodContainer(finalEoPodName, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level=INFO");
+            }
         );
 
         eoPods = DeploymentUtils.depSnapshot(eoName);
@@ -568,9 +566,9 @@ class LogSettingST extends BaseST {
 
         String finalEoPodName1 = eoPodName;
         TestUtils.waitFor("Logger change", Constants.GLOBAL_POLL_INTERVAL, Constants.GLOBAL_TIMEOUT, () -> {
-                    return cmdKubeClient().execInPodContainer(finalEoPodName1, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = TRACE")
-                            && cmdKubeClient().execInPodContainer(finalEoPodName1, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = TRACE");
-                }
+                return cmdKubeClient().execInPodContainer(finalEoPodName1, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = TRACE")
+                        && cmdKubeClient().execInPodContainer(finalEoPodName1, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = TRACE");
+            }
         );
 
         eoPodName = eoPods.keySet().iterator().next();
@@ -610,9 +608,9 @@ class LogSettingST extends BaseST {
 
         // update external configmap
         TestUtils.waitFor("Logger change", Constants.GLOBAL_POLL_INTERVAL, Constants.GLOBAL_TIMEOUT, () -> {
-                    return cmdKubeClient().execInPodContainer(finalEoPodName1, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG")
-                            && cmdKubeClient().execInPodContainer(finalEoPodName1, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG");
-                }
+                return cmdKubeClient().execInPodContainer(finalEoPodName1, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG")
+                        && cmdKubeClient().execInPodContainer(finalEoPodName1, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG");
+            }
         );
     }
 
