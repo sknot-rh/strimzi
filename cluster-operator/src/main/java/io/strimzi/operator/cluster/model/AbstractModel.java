@@ -353,7 +353,7 @@ public abstract class AbstractModel {
      * @param properties map with properties
      * @return
      */
-    protected static String createPropertiesString(OrderedProperties properties) {
+    protected String createPropertiesString(OrderedProperties properties) {
         return properties.asPairsWithComment("Do not change this generated file. Logging can be configured in the corresponding kubernetes/openshift resource.");
     }
 
@@ -386,7 +386,7 @@ public abstract class AbstractModel {
             return createPropertiesString(newSettings);
         } else if (logging instanceof ExternalLogging) {
             if (externalCm != null && externalCm.getData() != null && externalCm.getData().containsKey(getAncillaryConfigMapKeyLogConfig())) {
-                return externalCm.getData().get(getAncillaryConfigMapKeyLogConfig());
+                return addMonitorIntervalToExternalLogging(externalCm.getData().get(getAncillaryConfigMapKeyLogConfig()));
             } else {
                 log.warn("ConfigMap {} with external logging configuration does not exist or doesn't contain the configuration under the {} key. Default logging settings are used.", ((ExternalLogging) getLogging()).getName(), getAncillaryConfigMapKeyLogConfig());
                 return createPropertiesString(getDefaultLogConfig());
@@ -396,6 +396,10 @@ public abstract class AbstractModel {
             log.debug("logging is not set, using default loggers");
             return createPropertiesString(getDefaultLogConfig());
         }
+    }
+
+    protected String addMonitorIntervalToExternalLogging(String data) {
+        return data;
     }
 
     /**
