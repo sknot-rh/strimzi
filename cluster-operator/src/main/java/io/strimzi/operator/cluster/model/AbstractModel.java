@@ -354,6 +354,7 @@ public abstract class AbstractModel {
      * @return
      */
     protected String createPropertiesString(OrderedProperties properties) {
+        properties.addPair("monitorInterval", "5");
         return properties.asPairsWithComment("Do not change this generated file. Logging can be configured in the corresponding kubernetes/openshift resource.");
     }
 
@@ -399,7 +400,12 @@ public abstract class AbstractModel {
     }
 
     protected String addMonitorIntervalToExternalLogging(String data) {
-        return data;
+        if (!data.contains("monitorInterval=")) {
+            // do not override custom value
+            return data + "monitorInterval=5";
+        } else {
+            return data;
+        }
     }
 
     /**
