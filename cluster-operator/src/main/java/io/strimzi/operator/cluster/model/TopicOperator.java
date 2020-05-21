@@ -413,4 +413,15 @@ public class TopicOperator extends AbstractModel {
     protected void setTlsSidecar(TlsSidecar tlsSidecar) {
         this.tlsSidecar = tlsSidecar;
     }
+
+    /**
+     * Transforms properties to log4j2 properties file format and adds property for reloading the config
+     * @param properties map with properties
+     * @return modified string with monitorInterval
+     */
+    @Override
+    public String createPropertiesString(OrderedProperties properties) {
+        properties.addPair("monitorInterval", "5");
+        return super.createPropertiesString(properties);
+    }
 }
