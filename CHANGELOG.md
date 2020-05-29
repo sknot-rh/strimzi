@@ -4,6 +4,7 @@
 ## 0.19.0
 
 * Remove deprecated `Kafka.spec.topicOperator` classes and deployment logic 
+* Support dynamically changeable logging in the Entity Operator 
 
 ## 0.18.0
 
@@ -23,7 +24,6 @@
 * Add support for CORS in the HTTP Kafka Bridge
 * Pass HTTP Proxy configuration from operator to operands
 * Add Cruise Control support, KafkaRebalance resource and rebalance operator
-* Support dynamically changeable logging in the Entity Operator 
 
 ## 0.17.0
 
