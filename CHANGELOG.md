@@ -1,6 +1,10 @@
 
 # CHANGELOG
 
+## 0.19.0
+
+* Support dynamically changeable logging in the Entity Operator 
+
 ## 0.18.0
 
 * Add possibility to set Java System Properties for User Operator and Topic Operator via `Kafka` CR.
@@ -19,7 +23,6 @@
 * Add support for CORS in the HTTP Kafka Bridge
 * Pass HTTP Proxy configuration from operator to operands
 * Add Cruise Control support, KafkaRebalance resource and rebalance operator
-* Support dynamically changeable logging in the Entity Operator 
 
 ## 0.17.0
 
