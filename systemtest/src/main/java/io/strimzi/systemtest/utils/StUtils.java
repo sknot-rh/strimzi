@@ -24,6 +24,7 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.strimzi.test.k8s.KubeClusterResource.cmdKubeClient;
 import static io.strimzi.test.k8s.KubeClusterResource.kubeClient;
 
 public class StUtils {
@@ -214,5 +215,16 @@ public class StUtils {
             }
         }
         return isJSON;
+    }
+
+    /**
+     * Method which returns log from last {@code timeSince}
+     * @param podName name of pod to take a log from
+     * @param containerName name of container
+     * @param timeSince time from which the log should be taken - 3s, 5m, 2h -- back
+     * @return log from the pod
+     */
+    public static String getLogFromPodByTime(String podName, String containerName, String timeSince) {
+        return cmdKubeClient().execInCurrentNamespace("logs", podName, "-c", containerName, "--since=" + timeSince).out();
     }
 }
