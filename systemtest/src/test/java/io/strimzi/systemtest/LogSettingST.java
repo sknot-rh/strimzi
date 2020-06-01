@@ -33,6 +33,7 @@ import io.strimzi.systemtest.resources.crd.KafkaUserResource;
 import io.strimzi.systemtest.utils.StUtils;
 import io.strimzi.systemtest.utils.kubeUtils.controllers.DeploymentUtils;
 import io.strimzi.systemtest.utils.kubeUtils.controllers.StatefulSetUtils;
+import io.strimzi.test.TestUtils;
 import io.strimzi.test.timemeasuring.Operation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,6 +55,7 @@ import static io.strimzi.systemtest.Constants.CONNECT;
 import static io.strimzi.systemtest.Constants.CONNECT_COMPONENTS;
 import static io.strimzi.systemtest.Constants.MIRROR_MAKER;
 import static io.strimzi.systemtest.Constants.MIRROR_MAKER2;
+import static io.strimzi.systemtest.Constants.RECONCILIATION_INTERVAL;
 import static io.strimzi.systemtest.Constants.REGRESSION;
 import static io.strimzi.test.k8s.KubeClusterResource.cmdKubeClient;
 import static io.strimzi.test.k8s.KubeClusterResource.kubeClient;
@@ -496,7 +498,7 @@ class LogSettingST extends BaseST {
         );
 
         //wait some time if TO and UO will log something
-        Thread.sleep(60_000);
+        Thread.sleep(RECONCILIATION_INTERVAL * 2);
 
         LOGGER.info("Asserting if log is without records");
         assertThat(StUtils.getLogFromPodByTime(eoPodName, "topic-operator", "30s"), is(""));
@@ -514,7 +516,7 @@ class LogSettingST extends BaseST {
                         "appender.console.layout.type = PatternLayout\n" +
                         "appender.console.layout.pattern = [%d] %-5p <%-12.12c{1}:%L> [%-12.12t] %m%n\n" +
                         "\n" +
-                        "rootLogger.level = INFO\n" +
+                        "rootLogger.level = DEBUG\n" +
                         "rootLogger.appenderRefs = stdout\n" +
                         "rootLogger.appenderRef.console.ref = STDOUT\n" +
                         "rootLogger.additivity = false"))
@@ -532,7 +534,7 @@ class LogSettingST extends BaseST {
                         "appender.console.layout.type = PatternLayout\n" +
                         "appender.console.layout.pattern = [%d] %-5p <%-12.12c{1}:%L> [%-12.12t] %m%n\n" +
                         "\n" +
-                        "rootLogger.level = INFO\n" +
+                        "rootLogger.level = DEBUG\n" +
                         "rootLogger.appenderRefs = stdout\n" +
                         "rootLogger.appenderRef.console.ref = STDOUT\n" +
                         "rootLogger.additivity = false"))
@@ -560,12 +562,15 @@ class LogSettingST extends BaseST {
         DeploymentUtils.waitForNoRollingUpdate(KafkaResources.entityOperatorDeploymentName(CLUSTER_NAME), eoPods);
 
         TestUtils.waitFor("Logger change", Constants.GLOBAL_POLL_INTERVAL, Constants.GLOBAL_TIMEOUT,
-            () -> cmdKubeClient().execInPodContainer(eoPodName, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = INFO")
-                        && cmdKubeClient().execInPodContainer(eoPodName, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = INFO")
+            () -> cmdKubeClient().execInPodContainer(eoPodName, "topic-operator", "cat", "/opt/topic-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG")
+                        && cmdKubeClient().execInPodContainer(eoPodName, "user-operator", "cat", "/opt/user-operator/custom-config/log4j2.properties").out().contains("rootLogger.level = DEBUG")
         );
 
         //wait some time if TO and UO will log something
-        Thread.sleep(60_000);
+        Thread.sleep(RECONCILIATION_INTERVAL * 2);
+
+        KafkaUserResource.defaultUser(CLUSTER_NAME, "my-user");
+        KafkaTopicResource.topic(CLUSTER_NAME, "my-topic");
 
         LOGGER.info("Asserting if log will contain some records");
         assertThat(StUtils.getLogFromPodByTime(eoPodName, "topic-operator", "3m"), is(not("")));

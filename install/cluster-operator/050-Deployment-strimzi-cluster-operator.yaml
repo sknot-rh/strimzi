@@ -19,7 +19,7 @@ spec:
       serviceAccountName: strimzi-cluster-operator
       containers:
       - name: strimzi-cluster-operator
-        image: strimzi/operator:latest
+        image: sknot/operator:latest
         ports:
         - containerPort: 8080
           name: http
