@@ -407,7 +407,7 @@ public abstract class AbstractModel {
     protected String addMonitorIntervalToExternalLogging(String data) {
         if (!data.contains("monitorInterval")) {
             // do not override custom value
-            return data + "monitorInterval=30";
+            return data + "\nmonitorInterval=30\n";
         } else {
             return data;
         }
