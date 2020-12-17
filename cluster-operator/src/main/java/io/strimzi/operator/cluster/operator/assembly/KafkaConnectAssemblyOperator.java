@@ -12,8 +12,6 @@ import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.openshift.client.OpenShiftClient;
 import io.strimzi.api.kafka.KafkaConnectList;
 import io.strimzi.api.kafka.KafkaConnectS2IList;
-import io.strimzi.api.kafka.model.DoneableKafkaConnect;
-import io.strimzi.api.kafka.model.DoneableKafkaConnectS2I;
 import io.strimzi.api.kafka.model.ExternalLogging;
 import io.strimzi.api.kafka.model.KafkaConnect;
 import io.strimzi.api.kafka.model.KafkaConnectResources;
@@ -52,12 +50,12 @@ import java.util.function.Function;
  *     <li>A Kafka Connect Deployment and related Services</li>
  * </ul>
  */
-public class KafkaConnectAssemblyOperator extends AbstractConnectOperator<KubernetesClient, KafkaConnect, KafkaConnectList, DoneableKafkaConnect, Resource<KafkaConnect, DoneableKafkaConnect>, KafkaConnectSpec, KafkaConnectStatus> {
+public class KafkaConnectAssemblyOperator extends AbstractConnectOperator<KubernetesClient, KafkaConnect, KafkaConnectList, Resource<KafkaConnect>, KafkaConnectSpec, KafkaConnectStatus> {
     private static final Logger log = LogManager.getLogger(KafkaConnectAssemblyOperator.class.getName());
     private final DeploymentOperator deploymentOperations;
     private final NetworkPolicyOperator networkPolicyOperator;
     private final KafkaVersion.Lookup versions;
-    private final CrdOperator<OpenShiftClient, KafkaConnectS2I, KafkaConnectS2IList, DoneableKafkaConnectS2I> connectS2IOperations;
+    private final CrdOperator<OpenShiftClient, KafkaConnectS2I, KafkaConnectS2IList> connectS2IOperations;
 
     /**
      * @param vertx The Vertx instance

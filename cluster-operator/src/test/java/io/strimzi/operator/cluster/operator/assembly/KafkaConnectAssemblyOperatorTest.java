@@ -13,7 +13,6 @@ import io.fabric8.kubernetes.api.model.policy.PodDisruptionBudget;
 import io.fabric8.kubernetes.api.model.rbac.ClusterRoleBinding;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.strimzi.api.kafka.KafkaConnectorList;
-import io.strimzi.api.kafka.model.DoneableKafkaConnector;
 import io.strimzi.api.kafka.model.KafkaConnect;
 import io.strimzi.api.kafka.model.KafkaConnectResources;
 import io.strimzi.api.kafka.model.KafkaConnectS2I;
@@ -118,7 +117,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         when(mockConnectorOps.listAsync(anyString(), any(Optional.class))).thenReturn(Future.succeededFuture(emptyList()));
         when(mockConnectOps.get(kc.getMetadata().getNamespace(), kc.getMetadata().getName())).thenReturn(kc);
@@ -250,7 +249,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcName = "foo";
         String kcNamespace = "test";
@@ -341,7 +340,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcName = "foo";
         String kcNamespace = "test";
@@ -532,7 +531,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcName = "foo";
         String kcNamespace = "test";
@@ -600,7 +599,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcName = "foo";
         String kcNamespace = "test";
@@ -781,7 +780,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ConfigMapOperator mockCmOps = supplier.configMapOperations;
         ServiceOperator mockServiceOps = supplier.serviceOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         kc.getMetadata().setCreationTimestamp("2020-01-27T19:31:12Z");
 
@@ -1063,7 +1062,7 @@ public class KafkaConnectAssemblyOperatorTest {
         ArgumentCaptor<ClusterRoleBinding> desiredCrb = ArgumentCaptor.forClass(ClusterRoleBinding.class);
         when(mockCrbOps.reconcile(eq(KafkaConnectResources.initContainerClusterRoleBindingName(kcName, kcNamespace)), desiredCrb.capture())).thenReturn(Future.succeededFuture());
 
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockCntrOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockCntrOps = supplier.kafkaConnectorOperator;
         when(mockCntrOps.listAsync(any(), any(Labels.class))).thenReturn(Future.succeededFuture(emptyList()));
 
         KafkaConnectAssemblyOperator op = new KafkaConnectAssemblyOperator(vertx, new PlatformFeaturesAvailability(true, kubernetesVersion),

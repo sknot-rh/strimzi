@@ -29,7 +29,7 @@ import static io.strimzi.systemtest.resources.ResourceManager.CR_CREATION_TIMEOU
 public class KafkaMirrorMakerResource {
     public static final String PATH_TO_KAFKA_MIRROR_MAKER_CONFIG = TestUtils.USER_PATH + "/../examples/mirror-maker/kafka-mirror-maker.yaml";
 
-    public static MixedOperation<KafkaMirrorMaker, KafkaMirrorMakerList, DoneableKafkaMirrorMaker, Resource<KafkaMirrorMaker, DoneableKafkaMirrorMaker>> kafkaMirrorMakerClient() {
+    public static MixedOperation<KafkaMirrorMaker, KafkaMirrorMakerList, Resource<KafkaMirrorMaker>> kafkaMirrorMakerClient() {
         return Crds.mirrorMakerOperation(ResourceManager.kubeClient().getClient());
     }
 
@@ -121,6 +121,6 @@ public class KafkaMirrorMakerResource {
     }
 
     public static void replaceMirrorMakerResource(String resourceName, Consumer<KafkaMirrorMaker> editor) {
-        ResourceManager.replaceCrdResource(KafkaMirrorMaker.class, KafkaMirrorMakerList.class, DoneableKafkaMirrorMaker.class, resourceName, editor);
+        ResourceManager.replaceCrdResource(KafkaMirrorMaker.class, KafkaMirrorMakerList.class, resourceName, editor);
     }
 }

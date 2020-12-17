@@ -8,7 +8,6 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.openshift.api.model.Build;
 import io.fabric8.openshift.api.model.BuildConfig;
 import io.fabric8.openshift.api.model.BuildConfigList;
-import io.fabric8.openshift.api.model.DoneableBuildConfig;
 import io.fabric8.openshift.client.OpenShiftClient;
 import io.fabric8.openshift.client.dsl.BuildConfigResource;
 import io.vertx.core.Future;
@@ -17,7 +16,7 @@ import io.vertx.core.Vertx;
 /**
  * Operations for {@code BuildConfig}s.
  */
-public class BuildConfigOperator extends AbstractResourceOperator<OpenShiftClient, BuildConfig, BuildConfigList, DoneableBuildConfig, BuildConfigResource<BuildConfig, DoneableBuildConfig, Void, Build>> {
+public class BuildConfigOperator extends AbstractResourceOperator<OpenShiftClient, BuildConfig, BuildConfigList, BuildConfigResource<BuildConfig, Void, Build>> {
     /**
      * Constructor
      * @param vertx The Vertx instance
@@ -28,7 +27,7 @@ public class BuildConfigOperator extends AbstractResourceOperator<OpenShiftClien
     }
 
     @Override
-    protected MixedOperation<BuildConfig, BuildConfigList, DoneableBuildConfig, BuildConfigResource<BuildConfig, DoneableBuildConfig, Void, Build>> operation() {
+    protected MixedOperation<BuildConfig, BuildConfigList, BuildConfigResource<BuildConfig, Void, Build>> operation() {
         return client.buildConfigs();
     }
 

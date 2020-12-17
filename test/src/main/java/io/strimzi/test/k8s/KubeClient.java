@@ -5,8 +5,6 @@
 package io.strimzi.test.k8s;
 
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.Doneable;
-import io.fabric8.kubernetes.api.model.DoneablePod;
 import io.fabric8.kubernetes.api.model.DeletionPropagation;
 import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -22,7 +20,6 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.apiextensions.v1beta1.CustomResourceDefinition;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.apps.DoneableStatefulSet;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.batch.Job;
 import io.fabric8.kubernetes.api.model.batch.JobList;
@@ -221,7 +218,7 @@ public class KubeClient {
     /**
      * Gets pod
      */
-    public PodResource<Pod, DoneablePod> getPodResource(String name) {
+    public PodResource<Pod> getPodResource(String name) {
         return client.pods().inNamespace(getNamespace()).withName(name);
     }
 
@@ -272,7 +269,7 @@ public class KubeClient {
     /**
      * Gets stateful set
      */
-    public RollableScalableResource<StatefulSet, DoneableStatefulSet> statefulSet(String statefulSetName) {
+    public RollableScalableResource<StatefulSet> statefulSet(String statefulSetName) {
         return client.apps().statefulSets().inNamespace(getNamespace()).withName(statefulSetName);
     }
 
@@ -595,8 +592,8 @@ public class KubeClient {
         return client.rbac().roleBindings().list().getItems();
     }
 
-    public <T extends HasMetadata, L extends KubernetesResourceList<T>, D extends Doneable<T>> MixedOperation<T, L, D, Resource<T, D>> customResources(CustomResourceDefinitionContext crdContext, Class<T> resourceType, Class<L> listClass, Class<D> doneClass) {
-        return client.customResources(crdContext, resourceType, listClass, doneClass); //TODO namespace here
+    public <T extends HasMetadata, L extends KubernetesResourceList<T>> MixedOperation<T, L, Resource<T>> customResources(CustomResourceDefinitionContext crdContext, Class<T> resourceType, Class<L> listClass) {
+        return client.customResources(crdContext, resourceType, listClass); //TODO namespace here
     }
 
     // =========================
@@ -604,7 +601,7 @@ public class KubeClient {
     // =========================
 
     public List<CustomResourceDefinition> listCustomResourceDefinition() {
-        return client.customResourceDefinitions().list().getItems();
+        return client.apiextensions().v1beta1().customResourceDefinitions().list().getItems();
     }
 
     private static class SimpleListener implements ExecListener {
