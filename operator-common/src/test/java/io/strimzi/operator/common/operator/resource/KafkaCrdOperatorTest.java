@@ -13,7 +13,6 @@ import io.fabric8.kubernetes.client.dsl.base.OperationSupport;
 import io.strimzi.api.kafka.Crds;
 import io.strimzi.api.kafka.KafkaList;
 import io.strimzi.api.kafka.model.Constants;
-import io.strimzi.api.kafka.model.DoneableKafka;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaBuilder;
 import io.strimzi.api.kafka.model.listener.KafkaListenersBuilder;
@@ -39,7 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class KafkaCrdOperatorTest extends AbstractResourceOperatorTest<KubernetesClient, Kafka, KafkaList, DoneableKafka, Resource<Kafka, DoneableKafka>> {
+public class KafkaCrdOperatorTest extends AbstractResourceOperatorTest<KubernetesClient, Kafka, KafkaList, Resource<Kafka>> {
 
     @Override
     protected Class<KubernetesClient> clientType() {
@@ -82,12 +81,12 @@ public class KafkaCrdOperatorTest extends AbstractResourceOperatorTest<Kubernete
 
     @Override
     protected void mocker(KubernetesClient mockClient, MixedOperation op) {
-        when(mockClient.customResources(any(CustomResourceDefinitionContext.class), any(), any(), any())).thenReturn(op);
+        when(mockClient.customResources(any(CustomResourceDefinitionContext.class), any(), any())).thenReturn(op);
     }
 
     @Override
     protected CrdOperator createResourceOperations(Vertx vertx, KubernetesClient mockClient) {
-        return new CrdOperator(vertx, mockClient, Kafka.class, KafkaList.class, DoneableKafka.class, Crds.kafka());
+        return new CrdOperator(vertx, mockClient, Kafka.class, KafkaList.class, Crds.kafka());
     }
 
     @Test

@@ -5,7 +5,6 @@
 package io.strimzi.systemtest.resources;
 
 import io.fabric8.kubernetes.api.model.DeletionPropagation;
-import io.fabric8.kubernetes.api.model.Doneable;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodCondition;
@@ -108,14 +107,14 @@ public class ResourceManager {
         pointerResources = classResources;
     }
 
-    public static <T extends CustomResource, L extends CustomResourceList<T>, D extends Doneable<T>> void replaceCrdResource(Class<T> crdClass, Class<L> listClass, Class<D> doneableClass, String resourceName, Consumer<T> editor) {
-        Resource<T, D> namedResource = Crds.operation(kubeClient().getClient(), crdClass, listClass, doneableClass).inNamespace(kubeClient().getNamespace()).withName(resourceName);
+    public static <T extends CustomResource, L extends CustomResourceList<T>> void replaceCrdResource(Class<T> crdClass, Class<L> listClass, String resourceName, Consumer<T> editor) {
+        Resource<T> namedResource = Crds.operation(kubeClient().getClient(), crdClass, listClass).inNamespace(kubeClient().getNamespace()).withName(resourceName);
         T resource = namedResource.get();
         editor.accept(resource);
         namedResource.replace(resource);
     }
     @SuppressWarnings("unchecked")
-    public static <T extends HasMetadata> T deleteLater(MixedOperation<T, ?, ?, ?> operation, T resource) {
+    public static <T extends HasMetadata> T deleteLater(MixedOperation<T, ?, ?> operation, T resource) {
         LOGGER.debug("Scheduled deletion of {} {} in namespace {}",
                 resource.getKind(), resource.getMetadata().getName(), resource.getMetadata().getNamespace() == null ? "(not set)" : resource.getMetadata().getNamespace());
         switch (resource.getKind()) {
@@ -435,7 +434,7 @@ public class ResourceManager {
      * @param status - desired status
      * @return returns CR
      */
-    public static <T extends HasMetadata & HasStatus> T waitForResourceStatus(MixedOperation<T, ?, ?, ?> operation, T resource, Enum<?> status, long resourceTimeout) {
+    public static <T extends HasMetadata & HasStatus> T waitForResourceStatus(MixedOperation<T, ?, ?> operation, T resource, Enum<?> status, long resourceTimeout) {
         LOGGER.info("Wait for {}: {} will have desired state: {}", resource.getKind(), resource.getMetadata().getName(), status);
 
         TestUtils.waitFor(String.format("Wait for %s: %s will have desired state: %s", resource.getKind(), resource.getMetadata().getName(), status),
@@ -451,7 +450,7 @@ public class ResourceManager {
         return resource;
     }
 
-    public static <T extends HasMetadata & HasStatus> T waitForResourceStatus(MixedOperation<T, ?, ?, ?> operation, T resource, Enum<?> status) {
+    public static <T extends HasMetadata & HasStatus> T waitForResourceStatus(MixedOperation<T, ?, ?> operation, T resource, Enum<?> status) {
         long resourceTimeout = ResourceOperation.getTimeoutForResourceReadiness(resource.getKind());
         return waitForResourceStatus(operation, resource, status, resourceTimeout);
     }

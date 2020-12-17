@@ -14,7 +14,6 @@ import io.fabric8.openshift.api.model.BuildConfig;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.ImageStream;
 import io.strimzi.api.kafka.KafkaConnectorList;
-import io.strimzi.api.kafka.model.DoneableKafkaConnector;
 import io.strimzi.api.kafka.model.KafkaConnect;
 import io.strimzi.api.kafka.model.KafkaConnectS2I;
 import io.strimzi.api.kafka.model.KafkaConnectS2IResources;
@@ -116,7 +115,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         BuildConfigOperator mockBcOps = supplier.buildConfigOperations;
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         when(mockConnectorOps.listAsync(anyString(), any(Optional.class))).thenReturn(Future.succeededFuture(emptyList()));
         when(mockConnectS2IOps.get(kcs2i.getMetadata().getNamespace(), kcs2i.getMetadata().getName())).thenReturn(kcs2i);
@@ -272,7 +271,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         BuildConfigOperator mockBcOps = supplier.buildConfigOperations;
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcs2iName = "foo";
         String kcs2iNamespace = "test";
@@ -391,7 +390,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         BuildConfigOperator mockBcOps = supplier.buildConfigOperations;
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcs2iName = "foo";
         String kcs2iNamespace = "test";
@@ -628,7 +627,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         BuildConfigOperator mockBcOps = supplier.buildConfigOperations;
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcs2iName = "foo";
         String kcs2iNamespace = "test";
@@ -704,7 +703,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         BuildConfigOperator mockBcOps = supplier.buildConfigOperations;
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         String kcs2iName = "foo";
         String kcs2iNamespace = "test";
@@ -893,7 +892,7 @@ public class KafkaConnectS2IAssemblyOperatorTest {
         ImageStreamOperator mockIsOps = supplier.imagesStreamOperations;
         NetworkPolicyOperator mockNetPolOps = supplier.networkPolicyOperator;
 
-        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> mockConnectorOps = supplier.kafkaConnectorOperator;
+        CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList> mockConnectorOps = supplier.kafkaConnectorOperator;
 
         kcs2i.getMetadata().setCreationTimestamp("2020-01-27T19:31:11Z");
 
