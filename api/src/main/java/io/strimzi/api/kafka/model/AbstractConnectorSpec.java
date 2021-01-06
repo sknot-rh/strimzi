@@ -28,14 +28,13 @@ import static java.util.Collections.emptyMap;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"pause", "tasksMax", "config"})
 @EqualsAndHashCode
-public abstract class AbstractConnectorSpec implements Serializable, UnknownPropertyPreserving {
+public abstract class AbstractConnectorSpec extends Spec {
     private static final long serialVersionUID = 1L;
     private static final String FORBIDDEN_PARAMETERS = "connector.class, tasks.max";
 
     private Integer tasksMax;
     private Boolean pause;
     private Map<String, Object> config = new HashMap<>(0);
-    private Map<String, Object> additionalProperties;
 
     @Description("The maximum number of tasks for the Kafka Connector")
     @Minimum(1)
@@ -63,18 +62,5 @@ public abstract class AbstractConnectorSpec implements Serializable, UnknownProp
 
     public void setPause(Boolean pause) {
         this.pause = pause;
-    }
-
-    @Override
-    public Map<String, Object> getAdditionalProperties() {
-        return this.additionalProperties != null ? this.additionalProperties : emptyMap();
-    }
-
-    @Override
-    public void setAdditionalProperty(String name, Object value) {
-        if (this.additionalProperties == null) {
-            this.additionalProperties = new HashMap<>(1);
-        }
-        this.additionalProperties.put(name, value);
     }
 }

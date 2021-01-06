@@ -48,7 +48,7 @@ public class KafkaResource {
     private static final String PATH_TO_KAFKA_EPHEMERAL_CONFIG = TestUtils.USER_PATH + "/../examples/kafka/kafka-ephemeral.yaml";
     private static final String PATH_TO_KAFKA_PERSISTENT_CONFIG = TestUtils.USER_PATH + "/../examples/kafka/kafka-persistent.yaml";
 
-    public static MixedOperation<Kafka, KafkaList, DoneableKafka, Resource<Kafka, DoneableKafka>> kafkaClient() {
+    public static MixedOperation<Kafka, KafkaList, Resource<Kafka>> kafkaClient() {
         return Crds.kafkaOperation(ResourceManager.kubeClient().getClient());
     }
 
@@ -327,7 +327,7 @@ public class KafkaResource {
     }
 
     public static void replaceKafkaResource(String resourceName, Consumer<Kafka> editor) {
-        ResourceManager.replaceCrdResource(Kafka.class, KafkaList.class, DoneableKafka.class, resourceName, editor);
+        ResourceManager.replaceCrdResource(Kafka.class, KafkaList.class, resourceName, editor);
     }
 
     public static String getKafkaTlsListenerCaCertName(String namespace, String clusterName, String listenerName) {

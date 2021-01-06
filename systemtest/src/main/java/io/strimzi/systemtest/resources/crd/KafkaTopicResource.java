@@ -26,7 +26,7 @@ public class KafkaTopicResource {
 
     public static final String PATH_TO_KAFKA_TOPIC_CONFIG = TestUtils.USER_PATH + "/../examples/topic/kafka-topic.yaml";
 
-    public static MixedOperation<KafkaTopic, KafkaTopicList, DoneableKafkaTopic, Resource<KafkaTopic, DoneableKafkaTopic>> kafkaTopicClient() {
+    public static MixedOperation<KafkaTopic, KafkaTopicList, Resource<KafkaTopic>> kafkaTopicClient() {
         return Crds.topicOperation(ResourceManager.kubeClient().getClient());
     }
 
@@ -87,6 +87,6 @@ public class KafkaTopicResource {
     }
 
     public static void replaceTopicResource(String resourceName, Consumer<KafkaTopic> editor) {
-        ResourceManager.replaceCrdResource(KafkaTopic.class, KafkaTopicList.class, DoneableKafkaTopic.class, resourceName, editor);
+        ResourceManager.replaceCrdResource(KafkaTopic.class, KafkaTopicList.class, resourceName, editor);
     }
 }

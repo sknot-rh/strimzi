@@ -111,6 +111,6 @@ public class KafkaConnectS2IResource {
     }
 
     public static void replaceConnectS2IResource(String resourceName, Consumer<KafkaConnectS2I> editor) {
-        ResourceManager.replaceCrdResource(KafkaConnectS2I.class, KafkaConnectS2IList.class, DoneableKafkaConnectS2I.class, resourceName, editor);
+        ResourceManager.replaceCrdResource(KafkaConnectS2I.class, KafkaConnectS2IList.class, resourceName, editor);
     }
 }
