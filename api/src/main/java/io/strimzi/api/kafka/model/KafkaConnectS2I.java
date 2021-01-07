@@ -149,6 +149,7 @@ public class KafkaConnectS2I extends CustomResource<KafkaConnectS2ISpec, KafkaCo
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaConnectS2ISpec spec) {
         this.spec = spec;
     }
@@ -159,6 +160,7 @@ public class KafkaConnectS2I extends CustomResource<KafkaConnectS2ISpec, KafkaCo
         return status;
     }
 
+    @Override
     public void setStatus(KafkaConnectS2IStatus status) {
         this.status = status;
     }

@@ -142,6 +142,7 @@ public class KafkaUser extends CustomResource<KafkaUserSpec, KafkaUserStatus> im
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaUserSpec spec) {
         this.spec = spec;
     }
@@ -152,6 +153,7 @@ public class KafkaUser extends CustomResource<KafkaUserSpec, KafkaUserStatus> im
         return status;
     }
 
+    @Override
     public void setStatus(KafkaUserStatus status) {
         this.status = status;
     }

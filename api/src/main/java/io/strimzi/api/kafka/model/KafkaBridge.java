@@ -139,6 +139,7 @@ public class KafkaBridge extends CustomResource<KafkaBridgeSpec, KafkaBridgeStat
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaBridgeSpec spec) {
         this.spec = spec;
     }
@@ -149,6 +150,7 @@ public class KafkaBridge extends CustomResource<KafkaBridgeSpec, KafkaBridgeStat
         return status;
     }
 
+    @Override
     public void setStatus(KafkaBridgeStatus status) {
         this.status = status;
     }

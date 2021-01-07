@@ -139,11 +139,13 @@ public class Kafka extends CustomResource<KafkaSpec, KafkaStatus> implements Unk
         this.metadata = metadata;
     }
 
+    @Override
     @Description("The specification of the Kafka and ZooKeeper clusters, and Topic Operator.")
     public KafkaSpec getSpec() {
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaSpec spec) {
         this.spec = spec;
     }
@@ -154,6 +156,7 @@ public class Kafka extends CustomResource<KafkaSpec, KafkaStatus> implements Unk
         return status;
     }
 
+    @Override
     public void setStatus(KafkaStatus status) {
         this.status = status;
     }

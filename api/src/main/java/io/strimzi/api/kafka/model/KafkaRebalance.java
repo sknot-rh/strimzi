@@ -126,6 +126,7 @@ public class KafkaRebalance extends CustomResource<KafkaRebalanceSpec, KafkaReba
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaRebalanceSpec spec) {
         this.spec = spec;
     }
@@ -136,6 +137,7 @@ public class KafkaRebalance extends CustomResource<KafkaRebalanceSpec, KafkaReba
         return status;
     }
 
+    @Override
     public void setStatus(KafkaRebalanceStatus status) {
         this.status = status;
     }

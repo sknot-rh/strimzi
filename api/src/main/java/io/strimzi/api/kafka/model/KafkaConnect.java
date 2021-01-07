@@ -146,6 +146,7 @@ public class KafkaConnect extends CustomResource<KafkaConnectSpec, KafkaConnectS
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaConnectSpec spec) {
         this.spec = spec;
     }
@@ -156,6 +157,7 @@ public class KafkaConnect extends CustomResource<KafkaConnectSpec, KafkaConnectS
         return status;
     }
 
+    @Override
     public void setStatus(KafkaConnectStatus status) {
         this.status = status;
     }

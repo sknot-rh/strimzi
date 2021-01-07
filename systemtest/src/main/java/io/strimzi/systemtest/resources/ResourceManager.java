@@ -435,6 +435,7 @@ public class ResourceManager {
      * @param status - desired status
      * @return returns CR
      */
+
     public static <T extends CustomResource<? extends Spec, ? extends Status>> T waitForResourceStatus(MixedOperation<T, ?, ?> operation, T resource, Enum<?> status, long resourceTimeout) {
         LOGGER.info("Wait for {}: {} will have desired state: {}", resource.getKind(), resource.getMetadata().getName(), status);
 
@@ -450,6 +451,7 @@ public class ResourceManager {
         LOGGER.info("{}: {} is in desired state: {}", resource.getKind(), resource.getMetadata().getName(), status);
         return resource;
     }
+
 
     public static <T extends CustomResource<? extends Spec, ? extends Status>> T waitForResourceStatus(MixedOperation<T, ?, ?> operation, T resource, Enum<?> status) {
         long resourceTimeout = ResourceOperation.getTimeoutForResourceReadiness(resource.getKind());

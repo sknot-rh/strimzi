@@ -139,6 +139,7 @@ public class KafkaMirrorMaker2 extends CustomResource<KafkaMirrorMaker2Spec, Kaf
         return spec;
     }
 
+    @Override
     public void setSpec(KafkaMirrorMaker2Spec spec) {
         this.spec = spec;
     }
@@ -149,6 +150,7 @@ public class KafkaMirrorMaker2 extends CustomResource<KafkaMirrorMaker2Spec, Kaf
         return status;
     }
 
+    @Override
     public void setStatus(KafkaMirrorMaker2Status status) {
         this.status = status;
     }
