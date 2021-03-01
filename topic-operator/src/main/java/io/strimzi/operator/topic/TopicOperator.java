@@ -8,9 +8,7 @@ import io.fabric8.kubernetes.api.model.EventBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.client.Watcher;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.*;
 import io.micrometer.core.instrument.Timer;
 import io.strimzi.api.kafka.model.KafkaTopic;
 import io.strimzi.api.kafka.model.KafkaTopicBuilder;
@@ -34,12 +32,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -72,6 +65,8 @@ class TopicOperator {
     private Counter lockedReconciliationsCounter;
     private AtomicInteger topicCounter;
     protected Timer reconciliationsTimer;
+    private final Map<String, AtomicInteger> resourcesStateCounter;
+
 
     enum EventType {
         INFO("Info"),
@@ -387,6 +382,7 @@ class TopicOperator {
         this.metrics = metrics;
 
         initMetrics();
+        resourcesStateCounter = new ConcurrentHashMap<>();
     }
 
     public void initMetrics() {
@@ -1015,14 +1011,52 @@ class TopicOperator {
                         Promise<Void> promise = Promise.promise();
                         statusFuture = promise.future();
                         k8s.updateResourceStatus(new KafkaTopicBuilder(topic).withStatus(kts).build()).onComplete(ar -> {
+
+                            String key = topic.getMetadata().getNamespace() + ":" + topic.getKind() + "/" + topic.getMetadata().getName();
+
+                            Optional<Meter> metric = metrics.meterRegistry().getMeters()
+                                    .stream()
+                                    .filter(meter -> meter.getId().getName().equals(METRICS_PREFIX + "resource.state") &&
+                                            meter.getId().getTags().contains(Tag.of("kind", topic.getKind())) &&
+                                            meter.getId().getTags().contains(Tag.of("name", topic.getMetadata().getName())) &&
+                                            meter.getId().getTags().contains(Tag.of("resource-namespace", topic.getMetadata().getNamespace()))
+                                    ).findFirst();
+
+                            if (metric.isPresent()) {
+                                // remove metric so it can be re-added with new tags
+                                metrics.meterRegistry().remove(metric.get().getId());
+                                resourcesStateCounter.remove(key);
+                                LOGGER.debug("{}: Removed metric " + METRICS_PREFIX + "resource.state{}", topic, key);
+                            }
                             if (ar.succeeded() && ar.result() != null) {
                                 ObjectMeta metadata = ar.result().getMetadata();
+                                Tags metricTags;
+                                   metricTags = Tags.of(
+                                           Tag.of("kind", topic.getKind()),
+                                           Tag.of("name", topic.getMetadata().getName()),
+                                           Tag.of("resource-namespace", topic.getMetadata().getNamespace()));
+
+                                resourcesStateCounter.computeIfAbsent(key, tags ->
+                                                metrics.gauge(METRICS_PREFIX + "resource.state", "Current state of the resource: 1", tags));
+
+                                resourcesStateCounter.get(key).set(1);
+
+                                LOGGER.debug("{}: Updated metric " + METRICS_PREFIX + "resource.state{} = {}",topic, metricTags, 1);
+
+
                                 LOGGER.debug("{}: status was set rv={}, generation={}, observedGeneration={}",
                                         logContext,
                                         metadata.getResourceVersion(),
                                         metadata.getGeneration(),
                                         ar.result().getStatus().getObservedGeneration());
                             } else {
+
+                                Tags metricTags;
+                                metricTags = Tags.of(
+                                        Tag.of("kind", topic.getKind()),
+                                        Tag.of("name", topic.getMetadata().getName()),
+                                        Tag.of("resource-namespace", topic.getMetadata().getNamespace()),
+                                        Tag.of("reason", ar.cause().getMessage() == null ? "unknown error" : ar.cause().getMessage()));
                                 LOGGER.error("{}: Error setting resource status", logContext, ar.cause());
                             }
                             statusFuture.handle(ar.map((Void) null));
