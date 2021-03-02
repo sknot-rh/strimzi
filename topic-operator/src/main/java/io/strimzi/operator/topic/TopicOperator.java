@@ -1019,7 +1019,7 @@ class TopicOperator {
                                     .filter(meter -> meter.getId().getName().equals(METRICS_PREFIX + "resource.state") &&
                                             meter.getId().getTags().contains(Tag.of("kind", topic.getKind())) &&
                                             meter.getId().getTags().contains(Tag.of("name", topic.getMetadata().getName())) &&
-                                            meter.getId().getTags().contains(Tag.of("resource-namespace", topic.getMetadata().getNamespace()))
+                                            meter.getId().getTags().contains(Tag.of("resource-namespace", namespace))
                                     ).findFirst();
 
                             if (metric.isPresent()) {
@@ -1030,14 +1030,15 @@ class TopicOperator {
                             }
                             if (ar.succeeded() && ar.result() != null) {
                                 ObjectMeta metadata = ar.result().getMetadata();
+                                System.out.println(namespace);
                                 Tags metricTags;
                                    metricTags = Tags.of(
                                            Tag.of("kind", topic.getKind()),
-                                           Tag.of("name", topic.getMetadata().getName()),
-                                           Tag.of("resource-namespace", topic.getMetadata().getNamespace()));
+                                           Tag.of("name", topic.getMetadata().getName()));
+                                          Tag.of("resource-namespace", namespace);
 
                                 resourcesStateCounter.computeIfAbsent(key, tags ->
-                                                metrics.gauge(METRICS_PREFIX + "resource.state", "Current state of the resource: 1", tags));
+                                                metrics.gauge(METRICS_PREFIX + "resource.state", "Current state of the resource: 1", metricTags));
 
                                 resourcesStateCounter.get(key).set(1);
 
@@ -1055,8 +1056,14 @@ class TopicOperator {
                                 metricTags = Tags.of(
                                         Tag.of("kind", topic.getKind()),
                                         Tag.of("name", topic.getMetadata().getName()),
-                                        Tag.of("resource-namespace", topic.getMetadata().getNamespace()),
+                                        Tag.of("resource-namespace", namespace),
                                         Tag.of("reason", ar.cause().getMessage() == null ? "unknown error" : ar.cause().getMessage()));
+                                resourcesStateCounter.computeIfAbsent(key, tags ->
+                                        metrics.gauge(METRICS_PREFIX + "resource.state", "Current state of the resource: 0", metricTags));
+
+                                resourcesStateCounter.get(key).set(0);
+
+                                LOGGER.debug("{}: Updated metric " + METRICS_PREFIX + "resource.state{} = {}",topic, metricTags, 0);
                                 LOGGER.error("{}: Error setting resource status", logContext, ar.cause());
                             }
                             statusFuture.handle(ar.map((Void) null));
