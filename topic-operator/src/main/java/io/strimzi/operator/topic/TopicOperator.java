@@ -1114,6 +1114,11 @@ class TopicOperator {
                     LOGGER.debug("Ignoring pre-delete modify event");
                     reconciliation.observedTopicFuture(null);
                     result = Future.succeededFuture();
+                } else if (kafkaTopic == null
+                        && privateTopic == null
+                        && isModify) {
+                    // the topic does not exist && is modified -> it had and has invalid configuration
+                    result = reconcile(reconciliation, logContext, topicResource, k8sTopic, kafkaTopic, privateTopic);
                 } else if (privateTopic == null
                         && isModify) {
                     Promise<Void> promise = Promise.promise();
