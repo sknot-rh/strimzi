@@ -95,6 +95,7 @@ import io.strimzi.operator.common.model.Labels;
 import io.strimzi.operator.common.operator.resource.AbstractScalableResourceOperator;
 import io.strimzi.operator.common.operator.resource.CrdOperator;
 import io.strimzi.operator.common.operator.resource.DeploymentOperator;
+import io.strimzi.operator.common.operator.resource.EventOperator;
 import io.strimzi.operator.common.operator.resource.IngressOperator;
 import io.strimzi.operator.common.operator.resource.IngressV1Beta1Operator;
 import io.strimzi.operator.common.operator.resource.NodeOperator;
@@ -171,6 +172,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
     private final RoleBindingOperator roleBindingOperations;
     private final RoleOperator roleOperations;
     private final PodOperator podOperations;
+    private final EventOperator eventOperations;
     private final IngressOperator ingressOperations;
     private final IngressV1Beta1Operator ingressV1Beta1Operations;
     private final StorageClassOperator storageClassOperator;
@@ -205,6 +207,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         this.roleBindingOperations = supplier.roleBindingOperations;
         this.roleOperations = supplier.roleOperations;
         this.podOperations = supplier.podOperations;
+        this.eventOperations = supplier.eventOperations;
         this.ingressOperations = supplier.ingressOperations;
         this.ingressV1Beta1Operations = supplier.ingressV1Beta1Operations;
         this.storageClassOperator = supplier.storageClassOperations;
@@ -733,7 +736,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 }
                 return zkRollFuture
                         .compose(i -> kafkaSetOperations.getAsync(namespace, KafkaCluster.kafkaClusterName(name)))
-                        .compose(sts -> new KafkaRoller(reconciliation, vertx, podOperations, 1_000, operationTimeoutMs,
+                        .compose(sts -> new KafkaRoller(reconciliation, vertx, podOperations, eventOperations, 1_000, operationTimeoutMs,
                             () -> new BackOff(250, 2, 10), sts, clusterCa.caCertSecret(), oldCoSecret, adminClientProvider,
                             kafkaCluster.getBrokersConfiguration(), kafkaLogging, kafkaCluster.getKafkaVersion(), true)
                             .rollingRestart(rollPodAndLogReason))
@@ -1120,7 +1123,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
          */
         Future<Void> maybeRollKafka(StatefulSet sts, Function<Pod, List<String>> podNeedsRestart, boolean allowReconfiguration) {
             return adminClientSecrets()
-                .compose(compositeFuture -> new KafkaRoller(reconciliation, vertx, podOperations, 1_000, operationTimeoutMs,
+                .compose(compositeFuture -> new KafkaRoller(reconciliation, vertx, podOperations, eventOperations, 1_000, operationTimeoutMs,
                     () -> new BackOff(250, 2, 10), sts, compositeFuture.resultAt(0), compositeFuture.resultAt(1), adminClientProvider,
                         kafkaCluster.getBrokersConfiguration(), kafkaLogging, kafkaCluster.getKafkaVersion(), allowReconfiguration)
                     .rollingRestart(podNeedsRestart));

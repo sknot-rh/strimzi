@@ -32,10 +32,14 @@ import java.util.stream.IntStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.ContainerStateWaiting;
 import io.fabric8.kubernetes.api.model.ContainerStatus;
+import io.fabric8.kubernetes.api.model.Event;
+import io.fabric8.kubernetes.api.model.EventBuilder;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.strimzi.api.kafka.model.Constants;
+import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.operator.cluster.model.KafkaCluster;
 import io.strimzi.operator.cluster.model.KafkaVersion;
 import io.strimzi.operator.common.AdminClientProvider;
@@ -45,6 +49,7 @@ import io.strimzi.operator.common.ReconciliationLogger;
 import io.strimzi.operator.common.Reconciliation;
 import io.strimzi.operator.common.Util;
 import io.strimzi.operator.common.model.Labels;
+import io.strimzi.operator.common.operator.resource.EventOperator;
 import io.strimzi.operator.common.operator.resource.PodOperator;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -62,6 +67,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.SslAuthenticationException;
 
+import static io.strimzi.operator.common.operator.resource.StatusUtils.iso8601Now;
 import static java.util.Collections.singletonList;
 
 /**
@@ -108,6 +114,7 @@ public class KafkaRoller {
     private static final ReconciliationLogger LOGGER = ReconciliationLogger.create(KafkaRoller.class);
 
     private final PodOperator podOperations;
+    private final EventOperator eventOperations;
     private final long pollingIntervalMs;
     protected final long operationTimeoutMs;
     protected final Vertx vertx;
@@ -125,15 +132,15 @@ public class KafkaRoller {
     private final boolean allowReconfiguration;
     private Admin allClient;
 
-    public KafkaRoller(Reconciliation reconciliation, Vertx vertx, PodOperator podOperations,
+    public KafkaRoller(Reconciliation reconciliation, Vertx vertx, PodOperator podOperations, EventOperator eventOperator,
                        long pollingIntervalMs, long operationTimeoutMs, Supplier<BackOff> backOffSupplier,
                        StatefulSet sts, Secret clusterCaCertSecret, Secret coKeySecret,
                        String kafkaConfig, String kafkaLogging, KafkaVersion kafkaVersion, boolean allowReconfiguration) {
-        this(reconciliation, vertx, podOperations, pollingIntervalMs, operationTimeoutMs, backOffSupplier,
+        this(reconciliation, vertx, podOperations, eventOperator, pollingIntervalMs, operationTimeoutMs, backOffSupplier,
                 sts, clusterCaCertSecret, coKeySecret, new DefaultAdminClientProvider(), kafkaConfig, kafkaLogging, kafkaVersion, allowReconfiguration);
     }
 
-    public KafkaRoller(Reconciliation reconciliation, Vertx vertx, PodOperator podOperations,
+    public KafkaRoller(Reconciliation reconciliation, Vertx vertx, PodOperator podOperations, EventOperator eventOperations,
                        long pollingIntervalMs, long operationTimeoutMs, Supplier<BackOff> backOffSupplier,
                        StatefulSet sts, Secret clusterCaCertSecret, Secret coKeySecret,
                        AdminClientProvider adminClientProvider,
@@ -147,6 +154,7 @@ public class KafkaRoller {
         this.vertx = vertx;
         this.operationTimeoutMs = operationTimeoutMs;
         this.podOperations = podOperations;
+        this.eventOperations = eventOperations;
         this.pollingIntervalMs = pollingIntervalMs;
         this.adminClientProvider = adminClientProvider;
         this.kafkaConfig = kafkaConfig;
@@ -504,6 +512,28 @@ public class KafkaRoller {
                 needsReconfig = true;
             }
         } else if (needsRestart) {
+            Event event = new EventBuilder()
+                    .withNewMetadata()
+                        .withName(reconciliation.name() + "-" + podId)
+                        .withNamespace(reconciliation.namespace())
+                    .endMetadata()
+                    .withLastTimestamp(iso8601Now())
+                    .withMessage("Pod " + podId + " needs to be restarted. Reason: " + reasonToRestartPod.stream().collect(Collectors.joining(",")))
+                    .withNewInvolvedObject()
+                        .withKind(reconciliation.kind())
+                        .withName(reconciliation.name())
+                        .withNamespace(reconciliation.namespace())
+                    .endInvolvedObject()
+                    .withNewSource()
+                        .withComponent(Kafka.RESOURCE_KIND)
+                    .endSource()
+
+                    // This does not work :(
+                    //.withKind(Kafka.RESOURCE_KIND)
+                    //.withApiVersion(Constants.STRIMZI_GROUP + "/" + Kafka.CONSUMED_VERSION)
+                    .build();
+
+            eventOperations.createOrUpdate(reconciliation, event);
             LOGGER.infoCr(reconciliation, "Pod {} needs to be restarted. Reason: {}", podId, reasonToRestartPod);
         }
         return new RestartPlan(needsRestart, needsReconfig, podStuck, diff, loggingDiff);

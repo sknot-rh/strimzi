@@ -35,6 +35,7 @@ import io.strimzi.operator.common.operator.resource.ConfigMapOperator;
 import io.strimzi.operator.common.operator.resource.CrdOperator;
 import io.strimzi.operator.common.operator.resource.DeploymentConfigOperator;
 import io.strimzi.operator.common.operator.resource.DeploymentOperator;
+import io.strimzi.operator.common.operator.resource.EventOperator;
 import io.strimzi.operator.common.operator.resource.ImageStreamOperator;
 import io.strimzi.operator.common.operator.resource.IngressOperator;
 import io.strimzi.operator.common.operator.resource.IngressV1Beta1Operator;
@@ -90,6 +91,7 @@ public class ResourceOperatorSupplier {
     public final NodeOperator nodeOperator;
     public final ZookeeperScalerProvider zkScalerProvider;
     public final MetricsProvider metricsProvider;
+    public final EventOperator eventOperations;
     public AdminClientProvider adminClientProvider;
 
     public ResourceOperatorSupplier(Vertx vertx, KubernetesClient client, PlatformFeaturesAvailability pfa, FeatureGates gates, long operationTimeoutMs) {
@@ -139,6 +141,7 @@ public class ResourceOperatorSupplier {
                 new NodeOperator(vertx, client),
                 zkScalerProvider,
                 metricsProvider,
+                new EventOperator(vertx, client),
                 adminClientProvider);
     }
 
@@ -175,6 +178,7 @@ public class ResourceOperatorSupplier {
                                     NodeOperator nodeOperator,
                                     ZookeeperScalerProvider zkScalerProvider,
                                     MetricsProvider metricsProvider,
+                                    EventOperator eventOperations,
                                     AdminClientProvider adminClientProvider) {
         this.serviceOperations = serviceOperations;
         this.routeOperations = routeOperations;
@@ -209,6 +213,7 @@ public class ResourceOperatorSupplier {
         this.nodeOperator = nodeOperator;
         this.zkScalerProvider = zkScalerProvider;
         this.metricsProvider = metricsProvider;
+        this.eventOperations = eventOperations;
         this.adminClientProvider = adminClientProvider;
     }
 }

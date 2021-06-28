@@ -47,6 +47,7 @@ rules:
       - secrets
       # The cluster operator needs to access and manage persistent volume claims to bind them to Strimzi components for persistent data
       - persistentvolumeclaims
+      - events
     verbs:
       - get
       - list
