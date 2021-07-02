@@ -3,6 +3,7 @@
 ## 0.25.0
 
 * Allow a custom password to be set for SCRAM-SHA-512 users by referencing a secret in the `KafkaUser` resource
+* Annotate Cluster Operator resource metrics by a namespace label
 
 ### Changes, deprecations and removals
 
